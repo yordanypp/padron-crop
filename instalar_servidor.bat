@@ -54,10 +54,10 @@ if not exist ".venv\Scripts\python.exe" (
 echo.
 
 :: 3. Actualizar pip e instalar dependencias
-echo [3/4] Instalando librerías requeridas (requirements.txt)...
+echo [3/4] Instalando librerías requeridas y registrando paquete (pip install -e .)...
 echo       Esto puede tomar 1 o 2 minutos la primera vez...
 .venv\Scripts\python.exe -m pip install --upgrade pip >nul 2>&1
-.venv\Scripts\python.exe -m pip install -r requirements.txt pytest
+.venv\Scripts\python.exe -m pip install -r requirements.txt pytest -e .
 if %errorlevel% neq 0 (
     echo [ADVERTENCIA] Ocurrió un detalle al instalar las librerías.
 )
