@@ -23,6 +23,9 @@ out/*
 !out/sample/
 !out/sample/**
 
+# stress-test banks are generated on demand (tools/generar_variantes_estres.py)
+pruebas_variantes/
+
 # OS cruft
 Thumbs.db
 .DS_Store

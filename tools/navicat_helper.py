@@ -37,6 +37,28 @@ def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
     """
     csv_path = Path(csv_path)
     out_dir = Path(out_dir)
+
+    # Si el usuario ingresó una carpeta en vez de un archivo CSV
+    if csv_path.is_dir():
+        csv_candidates = sorted(list(csv_path.glob("*.csv")))
+        if csv_candidates:
+            print(f"[INFO] Carpeta detectada. Usando archivo CSV encontrado: {csv_candidates[0]}")
+            csv_path = csv_candidates[0]
+        else:
+            print(f"[INFO] Carpeta detectada con imágenes directas: {csv_path}")
+            print(f"[INFO] Procesando fotos con motor masivo...")
+            from padron_crop.batch import run_batch
+            return run_batch(
+                csv_path,
+                out_dir,
+                workers=4,
+                deskew=deskew,
+                face_safety=face_safety,
+                aspect_ratio=aspect_ratio,
+                quality=quality,
+                limit=limit,
+            )
+
     out_dir.mkdir(parents=True, exist_ok=True)
     temp_dir = out_dir / "_temp_navicat"
     temp_dir.mkdir(parents=True, exist_ok=True)
