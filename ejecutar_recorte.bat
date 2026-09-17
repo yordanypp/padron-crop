@@ -30,12 +30,28 @@ exit /b 1
 :PYTHON_OK
 set PYTHONPATH=src
 
+:: Verificar si las librerías necesarias están instaladas
+%PY_CMD% -c "import numpy, PIL" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ============================================================
+    echo [AVISO] Faltan librerías necesarias (NumPy, Pillow, OpenCV).
+    echo ============================================================
+    echo Se requiere preparar el entorno para procesar las fotos.
+    echo.
+    set /p DO_INST="¿Desea instalar las librerías automáticamente ahora? (S/N): "
+    if /i "!DO_INST!"=="S" (
+        call instalar_servidor.bat
+        exit /b 0
+    )
+)
+
 :MENU
 cls
 echo =================================================================
 echo      PADRÓN CROP - PANEL DE CONTROL Y PROCESAMIENTO MASIVO
 echo =================================================================
 echo.
+echo  [0] Instalar / Reparar Entorno (.venv + Librerías en 1 Clic)
 echo  [1] Análisis Exploratorio (EDA) de Dataset (Volumen, Barras y ETA)
 echo  [2] Procesamiento Masivo con Checkpoints y ETA en Vivo
 echo  [3] Asistente Navicat (Procesar CSV / Blobs sin Contraseña)
@@ -45,8 +61,9 @@ echo  [6] Ejecutar Suite Completa de Pruebas (129 Tests Automatizados)
 echo  [7] Iniciar Servidor Micro-API Local (Para Integraciones / Red)
 echo  [8] Salir
 echo.
-set /p OPT="Seleccione una opción [1-8]: "
+set /p OPT="Seleccione una opción [0-8]: "
 
+if "%OPT%"=="0" goto :RUN_INSTALL
 if "%OPT%"=="1" goto :RUN_EDA
 if "%OPT%"=="2" goto :RUN_BATCH
 if "%OPT%"=="3" goto :RUN_NAVICAT
@@ -58,6 +75,14 @@ if "%OPT%"=="8" exit /b 0
 
 echo Opción no válida.
 timeout /t 2 >nul
+goto :MENU
+
+:: -------------------------------------------------------------------
+:: [0] INSTALADOR AUTOMÁTICO
+:: -------------------------------------------------------------------
+:RUN_INSTALL
+cls
+call instalar_servidor.bat
 goto :MENU
 
 :: -------------------------------------------------------------------

@@ -7,16 +7,20 @@ Pipeline determinista de alta velocidad en Python para eliminar la franja inferi
 ## ⚡ Guía Rápida: Cómo Usarlo en Corto
 
 ### Opción A: Con Doble Clic (Windows)
-1. Haz doble clic en **`ejecutar_recorte.bat`** (o `run.bat`).
-2. Se abrirá el panel interactivo:
+1. Para instalar el entorno la primera vez, haz doble clic en **`instalar_servidor.bat`**.
+2. Haz doble clic en **`ejecutar_recorte.bat`** (o `run.bat`).
+3. Se abrirá el panel interactivo:
+   - `[0]` **Instalar / Reparar Entorno**: Crea `.venv` e instala NumPy, Pillow y OpenCV en 1 clic.
    - `[1]` **Análisis Exploratorio (EDA)**: Perfila el dataset antes de correr, detecta resoluciones, calcula barras vs limpias y proyecta el tiempo exacto (ETA) en 1, 4 u 8 núcleos.
    - `[2]` **Procesamiento Masivo**: Con barra de progreso en vivo, cálculo de ETA continuo y checkpoints automáticos para reanudar.
    - `[3]` **Asistente Navicat**: Extrae y procesa CSVs/BLOBs sin requerir clave de base de datos.
    - `[4]` **Muestra / Prototipo**: Procesa la imagen de muestra y abre la comparativa interactiva.
    - `[5]` **Galería Visual Interactiva**: Abre la auditoría visual de calidad en Chrome/Edge.
-   - `[6]` **Suite de Pruebas**: Ejecuta los 115 tests automatizados.
+   - `[6]` **Suite de Pruebas**: Ejecuta los 129 tests automatizados.
    - `[7]` **Micro-API Local**: Inicia el servidor HTTP en el puerto 8000.
    - `[8]` **Salir**.
+
+*(Para una guía detallada de instalación en Windows 10/11 remoto, consulta `GUIA_DESPLIEGUE_SERVIDOR_WINDOWS.md`)*
 
 ### Opción B: Comando Manual Corto (1 sola línea)
 
