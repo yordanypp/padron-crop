@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
@@ -40,21 +41,21 @@ set PYTHONPATH=src
 
 :: Verificar si las librerías necesarias están instaladas
 %PY_CMD% -c "import numpy, PIL, cv2" >nul 2>&1
-if %errorlevel% neq 0 (
-    cls
-    echo =================================================================
-    echo  [AVISO] Primera ejecución detectada en este equipo
-    echo =================================================================
-    echo.
-    echo Se detectó que faltan las librerías necesarias (NumPy, Pillow, OpenCV).
-    echo Podemos prepararlas automáticamente en 1 solo clic.
-    echo.
-    set /p DO_INST="¿Desea instalar las librerías automáticamente ahora? [S/N, default S]: "
-    if "!DO_INST!"=="" set DO_INST=S
-    if /i "!DO_INST!"=="S" (
-        call instalar_servidor.bat
-        exit /b 0
-    )
+if %errorlevel% equ 0 goto :MENU
+
+cls
+echo =================================================================
+echo  [AVISO] Primera ejecución detectada en este equipo
+echo =================================================================
+echo.
+echo Se detectó que faltan las librerías necesarias: NumPy, Pillow, OpenCV
+echo Podemos prepararlas automáticamente en 1 solo clic.
+echo.
+set /p DO_INST="¿Desea instalar las librerías automáticamente ahora? [S/N, default S]: "
+if "!DO_INST!"=="" set DO_INST=S
+if /i "!DO_INST!"=="S" (
+    call instalar_servidor.bat
+    exit /b 0
 )
 
 :: =================================================================
