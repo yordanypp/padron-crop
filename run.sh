@@ -24,6 +24,16 @@ echo "Python binary: $($PY_CMD --version)"
 echo ""
 
 case "${1:-menu}" in
+    eda)
+        if [ $# -lt 2 ]; then
+            echo "Usage: ./run.sh eda <src_dir> [sample_size]"
+            exit 1
+        fi
+        SRC="$2"
+        SAMPLE="${3:-100}"
+        echo "[INFO] Running Exploratory Data Analysis on $SRC (sample: $SAMPLE)..."
+        $PY_CMD -m padron_crop eda --src "$SRC" --sample "$SAMPLE"
+        ;;
     sample)
         echo "[INFO] Processing sample prototype..."
         $PY_CMD -m padron_crop crop --in 0aaa2b82-4607-4f53-8a28-ccafa017104d.jpg --out out/prototipos/0aaa2b82_recortada.jpg --deskew

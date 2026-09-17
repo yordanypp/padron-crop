@@ -69,6 +69,14 @@ def cmd_batch(args) -> int:
     _apply_max_px(args)
     stop = Stop().install()          # Ctrl-C finishes the chunk, then stops
     face_safety = not getattr(args, "no_face_safety", False)
+    if getattr(args, "eda_first", False):
+        from padron_crop.eda import run_eda, print_eda_summary
+        r = run_eda(Path(args.src), sample_size=min(50, getattr(args, "limit", 50) or 50))
+        print_eda_summary(r, Path(args.src))
+
+    checkpoint = not getattr(args, "no_checkpoint", False)
+    progress = False if getattr(args, "quiet", False) else getattr(args, "progress", None)
+
     try:
         summary = run_batch(Path(args.src), Path(args.out),
                             workers=max(1, args.workers), limit=args.limit,
@@ -77,7 +85,9 @@ def cmd_batch(args) -> int:
                             deskew=getattr(args, "deskew", False),
                             face_safety=face_safety,
                             quality=getattr(args, "quality", 95),
-                            aspect_ratio=getattr(args, "aspect_ratio", None))
+                            aspect_ratio=getattr(args, "aspect_ratio", None),
+                            checkpoint=checkpoint,
+                            progress=progress)
     except InsufficientSpace as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 3
@@ -86,6 +96,20 @@ def cmd_batch(args) -> int:
         print(f"interrupted: {summary.get('stop_reason')}; re-run with "
               f"--resume to continue", file=sys.stderr)
         return 130
+    return 0
+
+
+def cmd_eda(args) -> int:
+    from dataclasses import asdict
+    from padron_crop.eda import print_eda_summary, run_eda
+
+    out_dir = Path(args.out) if getattr(args, "out", None) else None
+    sample_size = getattr(args, "sample", 100)
+    report = run_eda(Path(args.src), out_dir=out_dir, sample_size=sample_size)
+    if getattr(args, "json", False):
+        _print(asdict(report))
+    else:
+        print_eda_summary(report, Path(args.src))
     return 0
 
 
@@ -250,11 +274,24 @@ def build_parser() -> argparse.ArgumentParser:
                     help="JPEG output quality (1-100, default 95)")
     sp.add_argument("--aspect-ratio", default=None,
                     help="optional target aspect ratio (e.g. 3:4, 1:1, 4:5)")
+    sp.add_argument("--no-checkpoint", action="store_true",
+                    help="disable atomic checkpoint saving")
+    sp.add_argument("--quiet", action="store_true",
+                    help="suppress interactive progress bar")
+    sp.add_argument("--eda-first", action="store_true",
+                    help="perform pre-flight dataset EDA profiling before batch processing")
     sp.add_argument("--allow-remote-ai", action="store_true",
                     help="ENABLE D4 vision on TEST COPIES only (off by default)")
     sp.add_argument("--provider", choices=["openai", "gemini", "grok"],
                     default="openai")
     sp.set_defaults(func=cmd_batch)
+
+    sp = sub.add_parser("eda", help="exploratory data analysis (EDA) and ETA estimation of an image dataset")
+    sp.add_argument("--src", required=True, help="source directory of images")
+    sp.add_argument("--out", default=None, help="optional directory to save eda_report.json / eda_report.md")
+    sp.add_argument("--sample", type=int, default=100, help="number of sample images to profile (default 100)")
+    sp.add_argument("--json", action="store_true", help="output report as raw JSON instead of text summary")
+    sp.set_defaults(func=cmd_eda)
 
     sp = sub.add_parser("sql", help="DB ingestion via PADRON_DB_URL")
     sp.add_argument("--query-file", required=True, help="query spec file")

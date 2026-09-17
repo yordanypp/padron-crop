@@ -8,11 +8,15 @@ Pipeline determinista de alta velocidad en Python para eliminar la franja inferi
 
 ### Opción A: Con Doble Clic (Windows)
 1. Haz doble clic en **`ejecutar_recorte.bat`** (o `run.bat`).
-2. Se abrirá el menú interactivo:
-   - Presiona `[1]` para procesar la imagen de muestra.
-   - Presiona `[2]` para procesar una carpeta completa con miles de fotos.
-   - Presiona `[3]` para abrir la **Galería Visual Interactiva** en tu navegador.
-   - Presiona `[4]` para correr los **110 tests automatizados**.
+2. Se abrirá el panel interactivo:
+   - `[1]` **Análisis Exploratorio (EDA)**: Perfila el dataset antes de correr, detecta resoluciones, calcula barras vs limpias y proyecta el tiempo exacto (ETA) en 1, 4 u 8 núcleos.
+   - `[2]` **Procesamiento Masivo**: Con barra de progreso en vivo, cálculo de ETA continuo y checkpoints automáticos para reanudar.
+   - `[3]` **Asistente Navicat**: Extrae y procesa CSVs/BLOBs sin requerir clave de base de datos.
+   - `[4]` **Muestra / Prototipo**: Procesa la imagen de muestra y abre la comparativa interactiva.
+   - `[5]` **Galería Visual Interactiva**: Abre la auditoría visual de calidad en Chrome/Edge.
+   - `[6]` **Suite de Pruebas**: Ejecuta los 115 tests automatizados.
+   - `[7]` **Micro-API Local**: Inicia el servidor HTTP en el puerto 8000.
+   - `[8]` **Salir**.
 
 ### Opción B: Comando Manual Corto (1 sola línea)
 
@@ -126,17 +130,18 @@ El contenedor se inicia automáticamente con OpenCV, límite seguro de RAM y el 
 ```bash
 python -m pytest -v
 ```
-**Resultado:** `110 passed in 10.64s (100% passing)`
-Cubre: D0, D1, D2, D3, Face Safety Gate, Auto-deskewing, Transparencia RGBA, decodificación Base64/Hex/BLOB de Navicat, reanudación y límites de disco.
+**Resultado:** `115 passed in 10.19s (100% passing)`
+Cubre: D0, D1, D2, D3, Face Safety Gate, Auto-deskewing, Transparencia RGBA, decodificación Base64/Hex/BLOB de Navicat, EDA pre-flight profiling, Checkpoints atómicos, cálculo de ETA en vivo y límites de disco.
 
 ---
 
 ## 📊 Especificación de la Línea de Comandos (CLI)
 
 ```
+padron-crop eda      --src DIR [--out OUT] [--sample 100] [--json]
 padron-crop inspect  --image PATH
 padron-crop crop     --in PATH --out PATH [--deskew] [--aspect-ratio 3:4|1:1] [--quality 95]
-padron-crop batch    --src DIR --out DIR --workers N --resume [--deskew] [--aspect-ratio R]
+padron-crop batch    --src DIR --out DIR --workers N --resume [--deskew] [--aspect-ratio R] [--eda-first]
 padron-crop sql      --query-file FILE --out DIR [--confirm tabla.columna] [--keep-blobs]
 padron-crop api      --config FILE --out DIR
 padron-crop gallery  --out DIR [--html archivo.html] [--limit N]
