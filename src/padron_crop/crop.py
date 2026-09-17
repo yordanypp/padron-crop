@@ -190,10 +190,12 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
         return rec
 
     # Optional auto-deskewing for tilted scans or phone photos
+    # If the unrotated image already shows a clear bar crop, we avoid rotating to prevent wedge artifacts.
     if deskew and opencv_ext.is_opencv_available():
+        det_probe = decide_crop(arr, allowed_sides=allowed_sides)
         angle = opencv_ext.detect_skew_angle(arr)
         rec["skew_angle"] = round(angle, 2)
-        if abs(angle) >= 0.35:
+        if det_probe.status == "noop" and abs(angle) >= 0.35:
             im = opencv_ext.deskew_image(im, angle)
             arr = np.asarray(im)
 
