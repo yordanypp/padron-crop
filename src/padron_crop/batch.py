@@ -29,6 +29,15 @@ DISK_CHECK_EVERY = int(os.environ.get("PADRON_DISK_CHECK_EVERY", 20))  # chunks
 MIN_FREE_MB = float(os.environ.get("PADRON_MIN_FREE_MB", 200))
 
 
+def _worker_init():
+    """Initializer for ProcessPool workers: avoid CPU thread contention in OpenCV."""
+    try:
+        import cv2
+        cv2.setNumThreads(1)
+    except Exception:
+        pass
+
+
 def _pool_usable() -> tuple[bool, str]:
     """Can a ProcessPool be used from this entry point?
 
@@ -186,7 +195,7 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
     if workers > 1:
         usable, why = _pool_usable()
         if usable:
-            pool = ProcessPoolExecutor(max_workers=workers)
+            pool = ProcessPoolExecutor(max_workers=workers, initializer=_worker_init)
         else:
             warnings.warn(f"falling back to 1 worker: {why}", RuntimeWarning,
                           stacklevel=2)

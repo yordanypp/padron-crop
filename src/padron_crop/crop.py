@@ -52,10 +52,18 @@ def load_luma_ready(path: Path) -> tuple[Image.Image, np.ndarray]:
 
     The numpy array aliases the PIL raster (mode RGB, no convert copy) so
     there is a single pixel buffer. The PIL object stays open for saving.
+    Transparent images (RGBA, LA, palette with alpha) are composited over a
+    clean white background to prevent transparent edges from becoming false
+    black bars.
     """
     im = Image.open(path)
     im = ImageOps.exif_transpose(im)
-    if im.mode != "RGB":
+    if im.mode in ("RGBA", "LA") or (im.mode == "P" and "transparency" in im.info):
+        im_rgba = im.convert("RGBA")
+        bg = Image.new("RGBA", im_rgba.size, (255, 255, 255, 255))
+        bg.alpha_composite(im_rgba)
+        im = bg.convert("RGB")
+    elif im.mode != "RGB":
         im = im.convert("RGB")
     arr = np.asarray(im)              # single buffer: numpy aliases PIL raster
     return im, arr
@@ -108,6 +116,9 @@ def _save_output(im: Image.Image, out_path: Path, src_path: Path, quality: int =
     exif = _clean_exif(im)
     if exif and fmt in ("JPEG", "WEBP", "TIFF"):
         kwargs["exif"] = exif
+    icc = im.info.get("icc_profile")
+    if icc and fmt in ("JPEG", "PNG", "WEBP", "TIFF"):
+        kwargs["icc_profile"] = icc
     # atomic: a crash can never leave a truncated image that resume counts done
     with safeio.atomic_path(out_path) as tmp:
         im.save(tmp, **kwargs)

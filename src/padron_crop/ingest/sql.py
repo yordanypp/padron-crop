@@ -10,14 +10,100 @@ Production hardening:
 """
 from __future__ import annotations
 
+import base64
 import os
 import re
+from pathlib import Path
 
 from padron_crop import safeio
 
 CANDIDATE_COL_HINTS = ("blob", "longblob", "mediumblob", "bytea", "image",
                        "photo", "foto", "path", "file", "data")
 CANDIDATE_TYPE_HINTS = ("blob", "bytea", "largebinary", "varbinary")
+
+
+def detect_image_ext(b: bytes) -> str:
+    """Detect image extension from magic bytes."""
+    if b.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if b.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if b.startswith(b"RIFF") and b[8:12] == b"WEBP":
+        return ".webp"
+    if b.startswith(b"BM"):
+        return ".bmp"
+    if b.startswith(b"II*\x00") or b.startswith(b"MM\x00*"):
+        return ".tiff"
+    return ".jpg"
+
+
+def decode_db_image(raw_val) -> tuple[bytes | None, Path | None, str]:
+    """Decode a DB cell value into either (raw_bytes, None, ext) or (None, file_path, ext).
+
+    Handles:
+    - Raw binary bytes/bytearray/memoryview
+    - Local filesystem path (existing file)
+    - Base64 data URLs (e.g. data:image/jpeg;base64,...)
+    - Raw Base64 string
+    - Hex-encoded binary strings (0x... or \\x...)
+    """
+    if raw_val is None:
+        return None, None, ".jpg"
+
+    if isinstance(raw_val, memoryview):
+        b = bytes(raw_val)
+        return b, None, detect_image_ext(b)
+
+    if isinstance(raw_val, (bytes, bytearray)):
+        b = bytes(raw_val)
+        return b, None, detect_image_ext(b)
+
+    s = str(raw_val).strip()
+
+    # Check if string is an existing file path
+    try:
+        p = Path(s)
+        if p.is_file():
+            return None, p, p.suffix.lower() or ".jpg"
+    except Exception:
+        pass
+
+    # Hex-encoded strings from some DB drivers (e.g. PostgreSQL \\x..., MySQL 0x...)
+    if s.startswith("0x") or s.startswith("0X"):
+        try:
+            b = bytes.fromhex(s[2:])
+            return b, None, detect_image_ext(b)
+        except ValueError:
+            pass
+    if s.startswith("\\x"):
+        try:
+            b = bytes.fromhex(s[2:])
+            return b, None, detect_image_ext(b)
+        except ValueError:
+            pass
+
+    # Base64 data URL
+    if s.startswith("data:image/") and ";base64," in s:
+        header, _, b64_data = s.partition(";base64,")
+        try:
+            b = base64.b64decode(b64_data)
+            return b, None, detect_image_ext(b)
+        except Exception:
+            pass
+
+    # Plain Base64
+    if len(s) > 32 and re.match(r"^[A-Za-z0-9+/=]+$", s):
+        try:
+            b = base64.b64decode(s)
+            # Verify magic bytes before assuming valid base64 image
+            if b.startswith((b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"BM", b"II*", b"MM\x00")):
+                return b, None, detect_image_ext(b)
+        except Exception:
+            pass
+
+    # Fallback to UTF-8 encoded bytes
+    b = s.encode("utf-8")
+    return b, None, detect_image_ext(b)
 
 SQL_BATCH = int(os.environ.get("PADRON_SQL_BATCH", 50))
 SQL_RETRIES = int(os.environ.get("PADRON_SQL_RETRIES", 3))

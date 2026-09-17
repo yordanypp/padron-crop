@@ -90,7 +90,7 @@ def cmd_batch(args) -> int:
 
 
 def cmd_sql(args) -> int:
-    from padron_crop.ingest.sql import SqlIngest
+    from padron_crop.ingest.sql import SqlIngest, decode_db_image
 
     try:
         ing = SqlIngest()
@@ -121,15 +121,51 @@ def cmd_sql(args) -> int:
     work.mkdir(parents=True, exist_ok=True)
     summary = {"ok": 0, "noop": 0, "quarantine": 0, "failed": 0}
     n = 0
-    for i, blob in enumerate(ing.iter_images(table, col, statement=statement)):
-        p = work / f"row_{i:08d}"
-        p.write_bytes(blob if isinstance(blob, (bytes, bytearray))
-                      else str(blob).encode())
-        rec = crop_image(p, out_dir)
+    deskew = getattr(args, "deskew", False)
+    face_safety = not getattr(args, "no_face_safety", False)
+    quality = getattr(args, "quality", 95)
+    aspect_ratio = getattr(args, "aspect_ratio", None)
+    keep_blobs = getattr(args, "keep_blobs", False)
+
+    for i, raw_val in enumerate(ing.iter_images(table, col, statement=statement)):
+        raw_bytes, file_path, ext = decode_db_image(raw_val)
+        temp_written = False
+        if file_path is not None:
+            target_p = file_path
+        elif raw_bytes is not None:
+            target_p = work / f"row_{i:08d}{ext}"
+            target_p.write_bytes(raw_bytes)
+            temp_written = True
+        else:
+            summary["failed"] = summary.get("failed", 0) + 1
+            n += 1
+            continue
+
+        rec = crop_image(target_p, out_dir, deskew=deskew,
+                         face_safety=face_safety, quality=quality,
+                         aspect_ratio=aspect_ratio)
         summary[rec["status"]] = summary.get(rec["status"], 0) + 1
         n += 1
+
+        if temp_written and not keep_blobs:
+            try:
+                target_p.unlink(missing_ok=True)
+            except OSError:
+                pass
+
     _print({"processed": n, "confirm": args.confirm,
             "query_file": str(qf) if statement else None, "summary": summary})
+    return 0
+
+
+def cmd_gallery(args) -> int:
+    from padron_crop.gallery import build_gallery
+
+    out_dir = Path(args.out)
+    target = Path(args.html) if getattr(args, "html", None) else out_dir / "gallery.html"
+    limit = getattr(args, "limit", None)
+    res = build_gallery(out_dir, target, limit=limit)
+    _print({"gallery": str(res), "message": "HTML visual QA gallery generated successfully"})
     return 0
 
 
@@ -225,6 +261,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--out", required=True)
     sp.add_argument("--confirm", default=None,
                     help="table.column confirmed by a human after introspection")
+    sp.add_argument("--keep-blobs", action="store_true",
+                    help="keep raw extracted DB blobs in _blobs/ instead of cleaning up")
+    sp.add_argument("--deskew", action="store_true",
+                    help="automatically detect and correct tilt/skew before cropping")
+    sp.add_argument("--no-face-safety", action="store_true",
+                    help="disable mathematical face & chin safety protection gate")
+    sp.add_argument("--quality", type=int, default=95,
+                    help="JPEG output quality (1-100, default 95)")
+    sp.add_argument("--aspect-ratio", default=None,
+                    help="optional target aspect ratio (e.g. 3:4, 1:1, 4:5)")
     sp.set_defaults(func=cmd_sql)
 
     sp = sub.add_parser("api", help="API ingestion from a JSON config file")
@@ -235,6 +281,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("qa", help="QA report of an out/ directory")
     sp.add_argument("--out", required=True)
     sp.set_defaults(func=cmd_qa)
+
+    sp = sub.add_parser("gallery", help="generate interactive HTML visual QA gallery")
+    sp.add_argument("--out", required=True, help="out directory with JSON sidecars")
+    sp.add_argument("--html", default=None, help="target HTML file path (default out/gallery.html)")
+    sp.add_argument("--limit", type=int, default=None, help="maximum items to include in gallery")
+    sp.set_defaults(func=cmd_gallery)
     return p
 
 

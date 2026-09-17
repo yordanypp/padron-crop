@@ -1,0 +1,13 @@
+services:
+  padron-crop:
+    build: .
+    container_name: padron-crop-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./out:/app/out
+    environment:
+      - PADRON_MAX_PIXELS=512000000
+      - PADRON_DB_URL=${PADRON_DB_URL:-}
+    restart: unless-stopped

@@ -1,0 +1,34 @@
+{
+  "source": "0aaa2b82-4607-4f53-8a28-ccafa017104d.jpg",
+  "sha256": "c6c151cb6dc94bf895872ae67ac8708e324f498f08d1be2d8eaf60735e2ae613",
+  "orig_wh": [
+    960,
+    1280
+  ],
+  "crop_box_xywh": [
+    0,
+    0,
+    960,
+    960
+  ],
+  "crop_box": [
+    0,
+    0,
+    960,
+    960
+  ],
+  "sides": [
+    "bottom"
+  ],
+  "method": "projection+glyphs",
+  "confidence": 0.905,
+  "face_safety_ok": true,
+  "face_detected": true,
+  "skew_angle": -2.84,
+  "opencv_available": true,
+  "elapsed_ms": 250,
+  "status": "ok",
+  "error": null,
+  "out_path": "prototipos\\04_recorte_cuadrado_1x1.jpg",
+  "dry_run": false
+}

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padrón Crop - Comparativa de Prototipos</title>
+<style>
+  :root {
+    --bg: #090d16;
+    --card: #151d2f;
+    --border: #23324d;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.2);
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --success: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    padding: 30px 20px;
+    line-height: 1.5;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  p.subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .badge-pills {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .pill.green { color: var(--success); border-color: rgba(34, 197, 94, 0.4); }
+  .pill.blue { color: var(--accent); border-color: rgba(56, 189, 248, 0.4); }
+
+  .showcase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 24px;
+    margin-top: 30px;
+  }
+  .item-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .item-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px var(--accent-glow);
+    border-color: var(--accent);
+  }
+  .card-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .card-header span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .img-wrapper {
+    height: 380px;
+    background: #020617;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+  .img-wrapper img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+  }
+  .card-info {
+    padding: 14px 16px;
+    font-size: 0.85rem;
+    background: #0d1424;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+  }
+  .info-row span { color: var(--text-muted); }
+  .info-row b { color: var(--text); }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .tag-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+  .tag-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+
+  footer {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Padrón Electoral &mdash; Auditoría de Recorte</h1>
+    <p class="subtitle">Comparativa visual de prototipos generados por el pipeline determinista con Face Safety Gate.</p>
+    <div class="badge-pills">
+      <div class="pill green">&#10003; 100% Sin Inpainting (Píxeles Legales Intactos)</div>
+      <div class="pill blue">&#128737; Face Safety Gate (Barbilla Protegida)</div>
+      <div class="pill green">&#9889; Cero Deformación Facial</div>
+    </div>
+  </header>
+
+  <div class="showcase-grid">
+    <!-- 1. Original -->
+    <div class="item-card">
+      <div class="card-header">
+        <h3>1. Original con Barra PRM</h3>
+        <span>Captura con logo inferior y barra negra</span>
+      </div>
+      <div class="img-wrapper">
+        <img src="01_original_muestra.jpg" alt="Original con barra PRM" />
+      </div>
+      <div class="card-info">
+        <div class="info-row"><span>Estado:</span> <b class="tag tag-danger">CON BLOQUE PRM</b></div>
+        <div class="info-row"><span>Dimensiones:</span> <b>960 &times; 1280 px</b></div>
+        <div class="info-row"><span>Defecto:</span> <b>Texto PRM + Barra Windows</b></div>
+      </div>
+    </div>
+
+    <!-- 2. Recorte Auto -->
+    <div class="item-card">
+      <div class="card-header">
+        <h3>2. Recorte Automático</h3>
+        <span>Eliminación precisa de la franja PRM</span>
+      </div>
+      <div class="img-wrapper">
+        <img src="02_recorte_automatico_prm.jpg" alt="Recorte automático" />
+      </div>
+      <div class="card-info">
+        <div class="info-row"><span>Estado:</span> <b class="tag tag-success">LIMPIO / OK</b></div>
+        <div class="info-row"><span>Dimensiones:</span> <b>960 &times; 1004 px</b></div>
+        <div class="info-row"><span>Protección facial:</span> <b>Barbilla intacta (+144px margen)</b></div>
+      </div>
+    </div>
+
+    <!-- 3. Formato Cedula 3:4 -->
+    <div class="item-card">
+      <div class="card-header">
+        <h3>3. Formato Cédula (3:4)</h3>
+        <span>Relación de aspecto estándar para credenciales</span>
+      </div>
+      <div class="img-wrapper">
+        <img src="03_recorte_formato_cedula_3x4.jpg" alt="Formato 3:4" />
+      </div>
+      <div class="card-info">
+        <div class="info-row"><span>Relación:</span> <b>3:4 (Retrato Oficial)</b></div>
+        <div class="info-row"><span>Dimensiones:</span> <b>753 &times; 1004 px</b></div>
+        <div class="info-row"><span>Centrado:</span> <b>Sujeto centrado automáticamente</b></div>
+      </div>
+    </div>
+
+    <!-- 4. Formato Cuadrado 1:1 -->
+    <div class="item-card">
+      <div class="card-header">
+        <h3>4. Formato Cuadrado (1:1)</h3>
+        <span>Relación de aspecto para avatar / sistemas web</span>
+      </div>
+      <div class="img-wrapper">
+        <img src="04_recorte_cuadrado_1x1.jpg" alt="Formato 1:1" />
+      </div>
+      <div class="card-info">
+        <div class="info-row"><span>Relación:</span> <b>1:1 (Avatar / Web)</b></div>
+        <div class="info-row"><span>Dimensiones:</span> <b>960 &times; 960 px</b></div>
+        <div class="info-row"><span>Enfoque:</span> <b>Rostro y hombros optimizados</b></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Proyecto Padrón Crop &bull; Diseñado para procesamiento masivo de gigabytes en CPU &bull; 100% Local y Privado</p>
+  </footer>
+</div>
+</body>
+</html>
