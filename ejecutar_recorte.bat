@@ -74,11 +74,12 @@ echo  [4] 🖼️ Probar Imagen de Muestra - Ver recorte de '0aaa2b82...jpg'
 echo  [5] 🌐 Abrir Galería Visual - Auditoría interactiva antes y después
 echo  [6] 🧪 Ejecutar Pruebas Automatizadas - Certificar 129 tests unitarios
 echo  [7] 🔌 Iniciar Micro-API Local - Servidor HTTP en puerto 8000
+echo  [8] 🔥 Probar Variantes de Estrés (50 fotos: PRM arriba, lados, marcos)
 echo  [0] 🔧 Reparar / Reinstalar Entorno - Recrear .venv y dependencias
-echo  [8] ❌ Salir
+echo  [9] ❌ Salir
 echo.
-echo =================================================================
-set /p OPT="Seleccione una opción [0-8]: "
+=================================================================
+set /p OPT="Seleccione una opción [0-9]: "
 
 if "%OPT%"=="1" goto :RUN_EDA
 if "%OPT%"=="2" goto :RUN_BATCH
@@ -87,8 +88,9 @@ if "%OPT%"=="4" goto :RUN_SAMPLE
 if "%OPT%"=="5" goto :OPEN_GALLERY
 if "%OPT%"=="6" goto :RUN_TESTS
 if "%OPT%"=="7" goto :RUN_SERVER
+if "%OPT%"=="8" goto :RUN_VARIANTS
 if "%OPT%"=="0" goto :RUN_INSTALL
-if "%OPT%"=="8" exit /b 0
+if "%OPT%"=="9" exit /b 0
 
 echo Opción no válida.
 timeout /t 2 >nul
@@ -383,5 +385,46 @@ echo.
 echo Presione Ctrl+C en cualquier momento para detener el servidor.
 echo.
 %PY_CMD% tools\serve_api.py --port 8000
+pause
+goto :MENU
+
+:: -------------------------------------------------------------------
+:: [8] VARIANTES DE ESTRÉS (PRM EN DISTINTAS POSICIONES)
+:: -------------------------------------------------------------------
+:RUN_VARIANTS
+cls
+echo =================================================================
+echo      [8] BANCO DE VARIANTES DE ESTRÉS (50 FOTOS)
+echo =================================================================
+echo.
+echo Este test toma la foto real del padrón y le genera 50 variantes:
+echo   - PRM arriba (izq, centro, der)
+echo   - PRM abajo (izq, centro, der, fino, grueso)
+echo   - PRM lateral (izq, der) y marcos perimetrales
+echo   - Controles limpios sin PRM
+echo.
+echo ¿Desea regenerar las 50 fotos y procesarlas ahora mismo?
+set /p DO_VAR="Ejecutar prueba de variantes? [S/N, default S]: "
+if "!DO_VAR!"=="" set DO_VAR=S
+if /i not "!DO_VAR!"=="S" goto :MENU
+
+echo.
+echo [1/3] Generando banco de fotos variantes en: pruebas_variantes\antes...
+%PY_CMD% tools\generar_variantes_estres.py
+
+echo.
+echo [2/3] Procesando variantes con el motor actual (padron_crop batch)...
+%PY_CMD% -m padron_crop batch --src pruebas_variantes\antes --out pruebas_variantes\despues --workers 4
+
+echo.
+echo [3/3] Generando comparador visual antes/después...
+%PY_CMD% tools\generar_galeria_variantes.py
+
+echo.
+echo =================================================================
+echo [EXITO] Prueba completada. Abriendo comparador visual en el navegador...
+if exist "pruebas_variantes\00_visualizador_antes_despues.html" (
+    start "" "pruebas_variantes\00_visualizador_antes_despues.html"
+)
 pause
 goto :MENU
