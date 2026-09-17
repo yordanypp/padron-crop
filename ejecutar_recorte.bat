@@ -51,6 +51,7 @@ echo.
 echo Se detectó que faltan las librerías necesarias: NumPy, Pillow, OpenCV
 echo Podemos prepararlas automáticamente en 1 solo clic.
 echo.
+set "DO_INST=S"
 set /p DO_INST="Desea instalar las librerias automaticamente ahora? [S/N, default S]: "
 if "!DO_INST!"=="" set DO_INST=S
 if /i not "!DO_INST!"=="S" goto :MENU
@@ -78,6 +79,7 @@ echo  [0] Reparar / Reinstalar Entorno - Recrear .venv y dependencias
 echo  [9] Salir
 echo.
 echo =================================================================
+set "OPT="
 set /p OPT="Seleccione una opción [0-9]: "
 
 if "%OPT%"=="1" goto :RUN_EDA
@@ -90,6 +92,13 @@ if "%OPT%"=="7" goto :RUN_SERVER
 if "%OPT%"=="8" goto :RUN_VARIANTS
 if "%OPT%"=="0" goto :RUN_INSTALL
 if "%OPT%"=="9" exit /b 0
+
+:: Si no hay entrada disponible (EOF / consola cerrada) salir limpiamente
+if "!OPT!"=="" (
+    echo.
+    echo [INFO] Sesión finalizada.
+    exit /b 0
+)
 
 echo Opción no válida.
 timeout /t 2 >nul
