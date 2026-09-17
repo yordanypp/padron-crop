@@ -309,3 +309,122 @@ def test_grayscale_monochromatic_face_detection():
     assert info["chin_y"] > 100
 
 
+def test_iter_local_single_file(tmp_path):
+    from padron_crop.ingest.local import iter_local
+
+    img_p = tmp_path / "single.jpg"
+    Image.new("RGB", (50, 50), (200, 200, 200)).save(img_p)
+
+    results = list(iter_local(img_p))
+    assert len(results) == 1
+    assert results[0] == img_p
+
+
+def test_face_centered_aspect_ratio():
+    from padron_crop import crop
+
+    # Image is 200x200, face is located at x=40..80 (center 60), y=20..70
+    face_info = {"bbox": (40, 20, 40, 50), "chin_y": 70}
+    # Original crop box: (0, 0, 200, 200)
+    # Target 3:4 (w = 150, h = 200)
+    box = crop._apply_aspect_ratio((0, 0, 200, 200), "3:4", max_w=200, max_h=200, face_info=face_info)
+    x, y, w, h = box
+    # Face center is at 60. Box width is 150. Ideal left is 60 - 75 = -15 -> clamped to 0.
+    assert x == 0
+    assert w == 150
+    assert h == 200
+
+
+def test_aspect_ratio_safety_fallback(tmp_path):
+    from padron_crop.crop import crop_image
+
+    # Create synthetic image with face and bottom bar
+    im = Image.new("RGB", (200, 200), (200, 200, 200))
+    # Head in center
+    for y in range(30, 90):
+        for x in range(70, 130):
+            im.putpixel((x, y), (210, 160, 120))
+    # Black bar at bottom (160..200)
+    for y in range(160, 200):
+        for x in range(200):
+            im.putpixel((x, y), (5, 5, 5))
+
+    p = tmp_path / "test_safety.jpg"
+    im.save(p)
+
+    # Crop with 1:1 aspect ratio
+    rec = crop_image(p, tmp_path / "out", aspect_ratio="1:1", face_safety=True)
+    assert rec["status"] == "ok"
+    # Ensure bottom cut does not cut the head (y < 90)
+    cb = rec["crop_box_xywh"]
+    assert cb[1] + cb[3] >= 90
+
+
+def test_navicat_csv_with_aspect_ratio_and_quality(tmp_path):
+    from tools.navicat_helper import process_navicat_csv
+
+    # Create dummy image
+    im_path = tmp_path / "test_photo.jpg"
+    Image.new("RGB", (100, 100), (220, 220, 220)).save(im_path)
+
+    csv_path = tmp_path / "export.csv"
+    csv_path.write_text(f"id,foto\n001,{im_path.as_posix()}\n", encoding="utf-8")
+
+    out_dir = tmp_path / "navicat_aspect_out"
+    summary = process_navicat_csv(
+        csv_path,
+        out_dir,
+        image_column="foto",
+        id_column="id",
+        aspect_ratio="3:4",
+        quality=90,
+    )
+    assert summary["total"] == 1
+    assert (out_dir / "gallery.html").exists()
+
+
+def test_api_server_live_endpoints(tmp_path):
+    import io
+    import threading
+    import urllib.request
+    from tools.serve_api import PadronCropHandler, ThreadingHTTPServer
+
+    out_dir = tmp_path / "api_out"
+    PadronCropHandler.out_dir = out_dir
+    server = ThreadingHTTPServer(("127.0.0.1", 0), PadronCropHandler)
+    port = server.server_port
+
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    try:
+        # Test /health
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode())
+            assert data["engine"] == "padron-crop"
+
+        # Test /crop/json
+        im_bytes = io.BytesIO()
+        Image.new("RGB", (60, 60), (220, 220, 220)).save(im_bytes, format="JPEG")
+        b64_str = base64.b64encode(im_bytes.getvalue()).decode()
+
+        req_body = json.dumps({"image_base64": b64_str, "aspect_ratio": "1:1"}).encode()
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/crop/json",
+            data=req_body,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req) as resp:
+            assert resp.status == 200
+            res = json.loads(resp.read().decode())
+            assert res["status"] in ("ok", "noop")
+            assert "crop_box_xywh" in res
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+
+
+

@@ -260,9 +260,10 @@ def verify_face_safety_margin(
     chin_y = face_info["chin_y"]
 
     # If cutting from bottom, bottom of crop box must be strictly below chin + safety margin
+    margin = max(safety_margin_px, 10)
     if c_bottom < img_h:
-        if c_bottom < (chin_y + safety_margin_px):
-            return False, f"crop bottom ({c_bottom}px) invades chin/face line ({chin_y}px + {safety_margin_px}px margin)"
+        if c_bottom < (chin_y + margin):
+            return False, f"crop bottom ({c_bottom}px) invades chin/face line ({chin_y}px + {margin}px margin)"
 
     # If cutting from top, top of crop box must be above the face top
     if cy > 0:

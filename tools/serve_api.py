@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import cgi
 import io
 import json
 import os
@@ -63,6 +62,7 @@ class PadronCropHandler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "status": "healthy",
                 "service": "padron-crop-api",
+                "engine": "padron-crop",
                 "opencv_available": opencv_ext.is_opencv_available(),
                 "python_version": sys.version.split()[0],
             })
@@ -124,13 +124,22 @@ class PadronCropHandler(BaseHTTPRequestHandler):
 
             deskew = bool(body.get("deskew", False))
             face_safety = bool(body.get("face_safety", True))
+            aspect_ratio = body.get("aspect_ratio")
+            quality = int(body.get("quality", 95))
 
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
                 tmp.write(img_bytes)
                 tmp_path = Path(tmp.name)
 
             try:
-                rec = crop_image(tmp_path, self.out_dir, deskew=deskew, face_safety=face_safety)
+                rec = crop_image(
+                    tmp_path,
+                    self.out_dir,
+                    deskew=deskew,
+                    face_safety=face_safety,
+                    aspect_ratio=aspect_ratio,
+                    quality=quality,
+                )
                 out_p = rec.get("out_path")
                 if out_p and Path(out_p).exists() and rec["status"] == "ok":
                     rec["cropped_base64"] = base64.b64encode(Path(out_p).read_bytes()).decode("utf-8")
@@ -142,10 +151,15 @@ class PadronCropHandler(BaseHTTPRequestHandler):
                     pass
             return
 
-        if self.path == "/crop":
+        if self.path.startswith("/crop"):
             if content_length <= 0:
                 self._send_json(400, {"error": "Empty body"})
                 return
+
+            aspect_ratio = self.headers.get("X-Aspect-Ratio")
+            quality = int(self.headers.get("X-Quality", 95))
+            deskew = self.headers.get("X-Deskew", "1").lower() in ("1", "true")
+            face_safety = self.headers.get("X-Face-Safety", "1").lower() in ("1", "true")
 
             img_bytes = self.rfile.read(content_length)
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -153,7 +167,14 @@ class PadronCropHandler(BaseHTTPRequestHandler):
                 tmp_path = Path(tmp.name)
 
             try:
-                rec = crop_image(tmp_path, self.out_dir, deskew=True, face_safety=True)
+                rec = crop_image(
+                    tmp_path,
+                    self.out_dir,
+                    deskew=deskew,
+                    face_safety=face_safety,
+                    aspect_ratio=aspect_ratio,
+                    quality=quality,
+                )
                 out_p = rec.get("out_path")
                 if out_p and Path(out_p).exists() and rec["status"] == "ok":
                     data = Path(out_p).read_bytes()

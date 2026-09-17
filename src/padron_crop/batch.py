@@ -121,7 +121,7 @@ def _compat(a, b):
 def _update_d0(rec, frozen, window, since):
     """D0 state machine: freeze after N stable samples, recalibrate every K."""
     st, m = rec["status"], rec["method"]
-    if st == "ok" and m == "d0-cache":
+    if st == "ok" and m == "d0-cache" and frozen is not None:
         since += 1
         if since >= RECALIBRATE_K:
             return (None, [], 0)
@@ -292,9 +292,29 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
                     for p in chunk]
             if pool:
                 futs = [pool.submit(_one_job, j) for j in jobs]
-                recs = [f.result() for f in futs]
+                recs = []
+                for fut, job in zip(futs, jobs):
+                    try:
+                        recs.append(fut.result())
+                    except Exception as exc:
+                        recs.append({
+                            "source": job[1],
+                            "status": "failed",
+                            "error": f"WorkerExecutionError: {type(exc).__name__}: {exc}",
+                            "elapsed_ms": 0,
+                        })
             else:
-                recs = [_one_job(j) for j in jobs]
+                recs = []
+                for j in jobs:
+                    try:
+                        recs.append(_one_job(j))
+                    except Exception as exc:
+                        recs.append({
+                            "source": j[1],
+                            "status": "failed",
+                            "error": f"ExecutionError: {type(exc).__name__}: {exc}",
+                            "elapsed_ms": 0,
+                        })
             for rec in recs:
                 _finish(rec)
                 frozen, window, since = _update_d0(rec, frozen, window, since)
@@ -320,6 +340,7 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
         summary["elapsed_seconds"] = round(elapsed_total, 2)
         summary["speed_fps"] = round(processed_this_run / max(0.001, elapsed_total), 2)
         if checkpoint and not dry_run:
-            _save_checkpoint(status_label="completed" if not summary.get("interrupted") else "interrupted")
+            is_complete = (len(done) + processed_this_run >= total_files) and not summary.get("interrupted")
+            _save_checkpoint(status_label="completed" if is_complete else "interrupted")
             summary["checkpoint"] = str(checkpoint_file)
     return summary

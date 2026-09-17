@@ -102,6 +102,7 @@ def run_eda(src_dir: Path, out_dir: Path | None = None,
 
     for p in sample_files:
         t0 = time.perf_counter()
+        im = None
         try:
             im, arr = load_luma_ready(p)
             elapsed = time.perf_counter() - t0
@@ -138,6 +139,12 @@ def run_eda(src_dir: Path, out_dir: Path | None = None,
 
         except Exception:
             corrupt_count += 1
+        finally:
+            if im is not None:
+                try:
+                    im.close()
+                except Exception:
+                    pass
 
     avg_w = int(sum(widths) / len(widths)) if widths else 0
     avg_h = int(sum(heights) / len(heights)) if heights else 0

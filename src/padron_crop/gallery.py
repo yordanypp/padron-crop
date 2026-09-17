@@ -269,12 +269,13 @@ def build_gallery(out_dir: Path, html_path: Path | None = None, limit: int | Non
     target = Path(html_path) if html_path else out_dir / "gallery.html"
 
     records = []
+    ignored_names = {"checkpoint.json", "checkpoint.jsonl", "eda_report.json", "inspect.json", "row_probe.json"}
     for p in sorted(out_dir.rglob("*.json")):
-        if p.name.startswith("."):
+        if p.name.startswith(".") or p.name in ignored_names:
             continue
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "status" in data:
+            if isinstance(data, dict) and "source" in data and data.get("status") in ("ok", "quarantine", "failed", "noop"):
                 records.append(data)
                 if limit and len(records) >= limit:
                     break

@@ -26,7 +26,8 @@ from padron_crop.ingest.sql import decode_db_image
 
 def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
                         id_column: str | None = None, deskew: bool = False,
-                        face_safety: bool = True, limit: int | None = None) -> dict:
+                        face_safety: bool = True, aspect_ratio: str | None = None,
+                        quality: int = 95, limit: int | None = None) -> dict:
     """Process photos directly from a CSV exported by Navicat.
     
     The column can contain:
@@ -124,6 +125,8 @@ def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
                 out_name=f"{safe_id}_crop{ext}",
                 deskew=deskew,
                 face_safety=face_safety,
+                aspect_ratio=aspect_ratio,
+                quality=quality,
             )
             st = rec.get("status", "failed")
             summary[st] = summary.get(st, 0) + 1
@@ -156,6 +159,8 @@ def main():
     sp_csv.add_argument("--id-col", default=None, help="Columna para nombrar la foto (ej: cedula, id)")
     sp_csv.add_argument("--deskew", action="store_true", help="Corregir inclinación")
     sp_csv.add_argument("--no-face-safety", action="store_true", help="Desactivar protección facial")
+    sp_csv.add_argument("--aspect-ratio", default=None, help="Formato de proporción opcional (ej: 3:4, 1:1, 4:5)")
+    sp_csv.add_argument("--quality", type=int, default=95, help="Calidad JPEG (1-100, default: 95)")
     sp_csv.add_argument("--limit", type=int, default=None, help="Límite de registros")
 
     args = p.parse_args()
@@ -167,6 +172,8 @@ def main():
             id_column=args.id_col,
             deskew=args.deskew,
             face_safety=not args.no_face_safety,
+            aspect_ratio=args.aspect_ratio,
+            quality=args.quality,
             limit=args.limit,
         )
         print(json.dumps(res, indent=2))

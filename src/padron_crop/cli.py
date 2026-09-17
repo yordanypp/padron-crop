@@ -209,10 +209,15 @@ def cmd_qa(args) -> int:
     out = Path(args.out)
     report: dict = {"total": 0, "ok": 0, "noop": 0, "quarantine": 0, "failed": 0,
                     "quarantine_items": []}
+    ignored_names = {"checkpoint.json", "checkpoint.jsonl", "eda_report.json", "inspect.json", "row_probe.json"}
     for sc in out.rglob("*.json"):
+        if sc.name.startswith(".") or sc.name in ignored_names:
+            continue
         try:
             rec = json.loads(sc.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(rec, dict) or "source" not in rec:
             continue
         st = rec.get("status")
         if isinstance(st, str) and st in report:

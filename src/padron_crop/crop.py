@@ -85,9 +85,10 @@ def _clean_exif(im: Image.Image) -> bytes:
         return b""
 
 
-def _apply_aspect_ratio(box: tuple[int, int, int, int], target_ratio: str, max_w: int, max_h: int) -> tuple[int, int, int, int]:
+def _apply_aspect_ratio(box: tuple[int, int, int, int], target_ratio: str, max_w: int, max_h: int,
+                        face_info: dict | None = None) -> tuple[int, int, int, int]:
     """Adjust box (x, y, w, h) to conform to target_ratio (e.g. '3:4', '1:1', '4:5')
-    without exceeding bounds or cutting into the cropped region."""
+    without exceeding bounds or cutting into the subject's face."""
     try:
         parts = target_ratio.split(":")
         rw, rh = float(parts[0]), float(parts[1])
@@ -95,20 +96,32 @@ def _apply_aspect_ratio(box: tuple[int, int, int, int], target_ratio: str, max_w
     except Exception:
         return box
     bx, by, bw, bh = box
-    if bw <= 0 or bh <= 0:
+    if bw <= 0 or bh <= 0 or target <= 0:
         return box
     cur = float(bw) / float(bh)
     if abs(cur - target) < 1e-3:
         return box
     if cur > target:
         new_w = min(max_w, max(1, int(round(bh * target))))
-        diff = bw - new_w
-        new_x = max(0, min(max_w - new_w, bx + diff // 2))
+        if face_info and "bbox" in face_info:
+            fx, fy, fw, fh = face_info["bbox"]
+            face_center_x = fx + fw // 2
+            ideal_x = face_center_x - new_w // 2
+            new_x = max(0, min(max_w - new_w, ideal_x))
+        else:
+            diff = bw - new_w
+            new_x = max(0, min(max_w - new_w, bx + diff // 2))
         return (new_x, by, new_w, bh)
     else:
         new_h = min(max_h, max(1, int(round(bw / target))))
-        diff = bh - new_h
-        new_y = max(0, min(max_h - new_h, by + diff // 2))
+        if face_info and "bbox" in face_info:
+            fx, fy, fw, fh = face_info["bbox"]
+            headroom = max(15, int(fh * 0.15))
+            ideal_y = max(0, fy - headroom)
+            new_y = max(0, min(max_h - new_h, ideal_y))
+        else:
+            diff = bh - new_h
+            new_y = max(0, min(max_h - new_h, by + diff // 2))
         return (bx, new_y, bw, new_h)
 
 
@@ -199,6 +212,7 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
             det = resolve_with_vision(det, arr, vision, src=src)
 
         # Advanced mathematical face & chin safety gate
+        face_info = None
         if face_safety and det.status == "crop":
             face_info = opencv_ext.detect_face_and_chin(arr)
             if face_info:
@@ -237,7 +251,14 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
         # status == crop
         x, y, w, h = det.crop_box
         if aspect_ratio:
-            x, y, w, h = _apply_aspect_ratio((x, y, w, h), aspect_ratio, W, H)
+            adj_box = _apply_aspect_ratio((x, y, w, h), aspect_ratio, W, H, face_info=face_info)
+            if face_safety and face_info:
+                safe, reason = opencv_ext.verify_face_safety_margin(adj_box, face_info, H, W)
+                if safe:
+                    x, y, w, h = adj_box
+                # if unsafe, keep the safe unadjusted crop box (det.crop_box)
+            else:
+                x, y, w, h = adj_box
 
         im_out = im.crop((x, y, x + w, y + h))
         ext = src.suffix.lower() or ".jpg"

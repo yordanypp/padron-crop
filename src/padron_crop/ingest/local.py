@@ -33,9 +33,14 @@ def sniff_ext(p: Path) -> bool:
 
 
 def iter_local(src: Path, limit: int | None = None):
-    """Yield image-like files under src (recursive), optionally capped."""
+    """Yield image-like files under src (recursive or single file), optionally capped."""
+    p_src = Path(src)
+    if p_src.is_file():
+        if sniff_ext(p_src):
+            yield p_src
+        return
     n = 0
-    for root, _dirs, files in os.walk(src):
+    for root, _dirs, files in os.walk(p_src):
         for name in sorted(files):
             p = Path(root) / name
             if sniff_ext(p):
