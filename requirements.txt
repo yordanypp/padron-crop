@@ -1,0 +1,12 @@
+# Runtime core (CPU-only, pip-installable everywhere).
+#   pip install -r requirements.txt
+numpy>=1.24
+Pillow>=10.0
+
+# Optional extras (install only what you need):
+#   pip install -e ".[cv]"     -> opencv-python-headless (deskew, face safety gate, fast C++ CC)
+#   pip install -e ".[sql]"    -> SQLAlchemy             (sql ingestion / Navicat DB)
+#   pip install -e ".[api]"    -> httpx                  (API ingestion)
+#   pip install -e ".[ocr]"    -> pytesseract            (+ Tesseract binary) OCR anchoring
+#   pip install -e ".[huge]"   -> pyvips                 (hundreds-of-MP images, low RAM)
+#   pip install -e ".[dev]"    -> pytest

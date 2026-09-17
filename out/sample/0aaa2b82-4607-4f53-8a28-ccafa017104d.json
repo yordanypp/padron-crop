@@ -1,0 +1,31 @@
+{
+  "source": "0aaa2b82-4607-4f53-8a28-ccafa017104d.jpg",
+  "sha256": "c6c151cb6dc94bf895872ae67ac8708e324f498f08d1be2d8eaf60735e2ae613",
+  "orig_wh": [
+    960,
+    1280
+  ],
+  "crop_box_xywh": [
+    0,
+    0,
+    960,
+    1004
+  ],
+  "crop_box": [
+    0,
+    0,
+    960,
+    1004
+  ],
+  "sides": [
+    "bottom"
+  ],
+  "method": "projection+glyphs",
+  "confidence": 0.903,
+  "face_safety_ok": true,
+  "elapsed_ms": 158,
+  "status": "ok",
+  "error": null,
+  "out_path": "out\\sample\\anchor_crop.jpg",
+  "dry_run": false
+}

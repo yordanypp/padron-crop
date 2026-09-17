@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "padron-crop"
+version = "0.1.0"
+description = "Deterministic black-bar/PRM block cropper for padrón photos (local/sql/api ingest)"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.24", "Pillow>=10.0"]
+
+[project.optional-dependencies]
+cv = ["opencv-python-headless>=4.8"]
+sql = ["SQLAlchemy>=2.0"]
+api = ["httpx>=0.27"]
+ocr = ["pytesseract>=0.3.10"]
+huge = ["pyvips>=2.2"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+padron-crop = "padron_crop.cli:main_entry"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

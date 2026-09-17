@@ -1,0 +1,31 @@
+# caches / build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# secrets — never commit real credentials
+.env
+.env.local
+*.pem
+*.key
+
+# out directory: keep documentation benchmarks and the reference sample, ignore transient runs
+out/*
+!out/benchmark.md
+!out/loadtest.md
+!out/sqltest.md
+!out/sample/
+!out/sample/**
+
+# OS cruft
+Thumbs.db
+.DS_Store
+*.swp
+*.bak
+
