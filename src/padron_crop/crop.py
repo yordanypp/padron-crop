@@ -207,6 +207,16 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
         det = apply_frozen(arr, frozen) if frozen else None
         if det is None:
             det = decide_crop(arr, allowed_sides=allowed_sides)
+        else:
+            # Re-validate frozen crop: verify that the cut edges are not leaving a thick black bar behind
+            # (e.g. if current image has a thicker bar than the cached template)
+            det_fresh = decide_crop(arr, allowed_sides=allowed_sides)
+            if det_fresh.status == "crop":
+                # If fresh detection proposes a deeper cut on any side, prefer fresh
+                fx, fy, fw, fh = det.crop_box
+                rx, ry, rw, rh = det_fresh.crop_box
+                if ry > fy or (H - ry - rh) > (H - fy - fh) or rx > fx or (W - rx - rw) > (W - fx - fw):
+                    det = det_fresh
         if vision is not None:
             # D4 may only veto (quarantine); geometry stays deterministic
             from padron_crop.vision import resolve_with_vision

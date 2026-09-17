@@ -178,10 +178,40 @@ def detect_face_and_chin(arr: np.ndarray) -> Optional[Dict[str, Any]]:
         if candidates:
             candidates.sort(reverse=True)
             best_area, bx, by, bw, bh = candidates[0]
-            chin_y = int(by + bh * 0.85)
+
+            # Refined anatomical analysis:
+            # 1. Chin line is the narrowest point of the lower face / neck (between 50% and 75% H)
+            widths = []
+            for y_scan in range(int(H * 0.50), int(H * 0.75)):
+                nz = np.nonzero(skin_mask[y_scan, :])[0]
+                if nz.size > 100:
+                    widths.append((nz[-1] - nz[0], y_scan))
+            if widths:
+                widths.sort()
+                chin_y = widths[0][1]
+            else:
+                chin_y = int(by + bh * 0.85)
+
+            # 2. Forehead line: where face skin begins in upper portrait (between 15% and 45% H)
+            forehead_rows = []
+            for y_scan in range(int(H * 0.15), int(H * 0.45)):
+                nz = np.nonzero(skin_mask[y_scan, :])[0]
+                if nz.size > 80:
+                    forehead_rows.append(y_scan)
+            forehead_y = forehead_rows[0] if forehead_rows else int(by + bh * 0.15)
+
+            # 3. Horizontal boundaries bounded to face area (forehead to chin)
+            face_slice = skin_mask[forehead_y:chin_y, :]
+            col_counts = face_slice.sum(axis=0) / 255.0
+            nz_cols = np.where(col_counts > 40)[0]
+            if nz_cols.size:
+                fx0, fx1 = int(nz_cols[0]), int(nz_cols[-1])
+            else:
+                fx0, fx1 = bx, bx + bw
+
             conf = min(0.95, float(best_area) / (H * W * 0.15))
             return {
-                "bbox": (int(bx), int(by), int(bw), int(bh)),
+                "bbox": (fx0, forehead_y, fx1 - fx0, chin_y - forehead_y),
                 "chin_y": chin_y,
                 "confidence": round(conf, 3),
             }
