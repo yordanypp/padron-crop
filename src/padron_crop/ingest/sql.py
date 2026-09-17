@@ -85,16 +85,18 @@ def decode_db_image(raw_val) -> tuple[bytes | None, Path | None, str]:
     # Base64 data URL
     if s.startswith("data:image/") and ";base64," in s:
         header, _, b64_data = s.partition(";base64,")
+        b64_clean = re.sub(r"\s+", "", b64_data)
         try:
-            b = base64.b64decode(b64_data)
+            b = base64.b64decode(b64_clean.replace("-", "+").replace("_", "/"), validate=False)
             return b, None, detect_image_ext(b)
         except Exception:
             pass
 
-    # Plain Base64
-    if len(s) > 32 and re.match(r"^[A-Za-z0-9+/=]+$", s):
+    # Plain Base64 (handles embedded whitespace, newlines, and urlsafe chars)
+    s_clean = re.sub(r"\s+", "", s)
+    if len(s_clean) > 32 and re.match(r"^[A-Za-z0-9+/=_-]+$", s_clean):
         try:
-            b = base64.b64decode(s)
+            b = base64.b64decode(s_clean.replace("-", "+").replace("_", "/"), validate=False)
             # Verify magic bytes before assuming valid base64 image
             if b.startswith((b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"BM", b"II*", b"MM\x00")):
                 return b, None, detect_image_ext(b)
@@ -112,8 +114,10 @@ _READ_ONLY_RE = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
 
 
 def assert_read_only(statement: str) -> str:
-    """Reject anything that is not a read-only query (no writes, ever)."""
-    if not _READ_ONLY_RE.match(statement or ""):
+    """Reject anything that is not a read-only query (no writes, ever).
+    Strips UTF-8 BOM, whitespace, and leading formatting."""
+    clean_stmt = (statement or "").lstrip("\ufeff \t\r\n")
+    if not _READ_ONLY_RE.match(clean_stmt):
         raise ValueError(
             "refusing to run a non read-only statement; only SELECT/WITH are allowed"
         )

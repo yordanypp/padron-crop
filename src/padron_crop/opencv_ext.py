@@ -123,17 +123,19 @@ def detect_skew_angle(arr: np.ndarray, max_angle: float = 15.0) -> float:
 
 
 def deskew_image(im: Image.Image, angle_deg: float) -> Image.Image:
-    """Rotate image by -angle_deg to correct tilt, using high quality bicubic resampling."""
+    """Rotate image by -angle_deg to correct tilt, using high quality bicubic resampling.
+    Fills exposed corners with clean white to prevent false black bars."""
     if abs(angle_deg) < 0.2:
         return im
-    return im.rotate(-angle_deg, resample=Image.BICUBIC, expand=False)
+    return im.rotate(-angle_deg, resample=Image.BICUBIC, expand=False, fillcolor=(255, 255, 255))
 
 
 def detect_face_and_chin(arr: np.ndarray) -> Optional[Dict[str, Any]]:
     """Detect portrait face region and estimated chin boundary.
 
-    Uses YCrCb and HSV skin-tone segmentation, morphological filtering, and
-    connected component analysis.
+    Supports both full-color and monochromatic/grayscale portraits.
+    Uses YCrCb skin-tone segmentation when color is present, and
+    contrast/morphological connected components for grayscale portraits.
     Returns:
         dict with:
             - 'bbox': (x, y, w, h)
@@ -145,7 +147,12 @@ def detect_face_and_chin(arr: np.ndarray) -> Optional[Dict[str, Any]]:
         return None
 
     H, W = arr.shape[:2]
-    if _HAS_CV2:
+    r = arr[:, :, 0].astype(int)
+    g = arr[:, :, 1].astype(int)
+    b = arr[:, :, 2].astype(int)
+    is_mono = (np.abs(r - g).mean() < 4) and (np.abs(g - b).mean() < 4)
+
+    if _HAS_CV2 and not is_mono:
         ycrcb = cv2.cvtColor(arr, cv2.COLOR_RGB2YCrCb)
         # Skin range in YCrCb: Cr in [133, 173], Cb in [77, 127]
         skin_mask = cv2.inRange(
@@ -164,43 +171,64 @@ def detect_face_and_chin(arr: np.ndarray) -> Optional[Dict[str, Any]]:
             x, y, w, h, area = stats[i]
             # Face/head must be predominantly in upper 75% of portrait
             if area >= min_area and y < H * 0.70:
-                # Aspect ratio of face region usually 0.6 to 1.8
                 aspect = float(h) / max(1.0, float(w))
                 if 0.5 <= aspect <= 2.2:
                     candidates.append((area, x, y, w, h))
 
-        if not candidates:
-            return None
-
-        candidates.sort(reverse=True)
-        best_area, bx, by, bw, bh = candidates[0]
-        # Chin is typically around y + 0.75*h to y + 0.90*h of head+neck blob
-        chin_y = int(by + bh * 0.85)
-        conf = min(0.95, float(best_area) / (H * W * 0.15))
-
-        return {
-            "bbox": (int(bx), int(by), int(bw), int(bh)),
-            "chin_y": chin_y,
-            "confidence": round(conf, 3),
-        }
-
-    # Numpy fallback for skin detection
-    # Approximate skin: R > G > B, R - G > 15, R > 95, G > 40, B > 20
-    r = arr[:, :, 0].astype(int)
-    g = arr[:, :, 1].astype(int)
-    b = arr[:, :, 2].astype(int)
-    skin = (r > 95) & (g > 40) & (b > 20) & (r > g) & (g > b) & ((r - g) > 15)
-    rows = np.nonzero(skin.any(axis=1))[0]
-    cols = np.nonzero(skin.any(axis=0))[0]
-    if rows.size > 20 and cols.size > 20:
-        y0, y1 = int(rows.min()), int(rows.max())
-        x0, x1 = int(cols.min()), int(cols.max())
-        if (y1 - y0) > H * 0.15:
+        if candidates:
+            candidates.sort(reverse=True)
+            best_area, bx, by, bw, bh = candidates[0]
+            chin_y = int(by + bh * 0.85)
+            conf = min(0.95, float(best_area) / (H * W * 0.15))
             return {
-                "bbox": (x0, y0, x1 - x0, y1 - y0),
-                "chin_y": int(y0 + (y1 - y0) * 0.85),
-                "confidence": 0.70,
+                "bbox": (int(bx), int(by), int(bw), int(bh)),
+                "chin_y": chin_y,
+                "confidence": round(conf, 3),
             }
+
+    # Monochromatic / Grayscale or fallback head detection
+    gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY) if _HAS_CV2 else arr[:, :, 0]
+    upper_h = int(H * 0.75)
+    upper = gray[:upper_h, :]
+    bg_sample = np.concatenate([upper[:int(H * 0.1), :int(W * 0.2)].ravel(),
+                                upper[:int(H * 0.1), -int(W * 0.2):].ravel()])
+    bg_val = float(np.median(bg_sample)) if bg_sample.size else 128.0
+    diff = np.abs(upper.astype(float) - bg_val).astype(np.uint8)
+
+    if _HAS_CV2:
+        _, mask = cv2.threshold(diff, 18, 255, cv2.THRESH_BINARY)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        num, labels, stats, centroids = cv2.connectedComponentsWithStats(mask)
+        candidates = []
+        for i in range(1, num):
+            x, y, w, h, area = stats[i]
+            if area > (H * W * 0.04) and y < H * 0.50:
+                candidates.append((area, x, y, w, h))
+        if candidates:
+            candidates.sort(reverse=True)
+            best_area, x, y, w, h = candidates[0]
+            chin_y = int(y + h * 0.85)
+            return {
+                "bbox": (int(x), int(y), int(w), int(h)),
+                "chin_y": chin_y,
+                "confidence": 0.80,
+            }
+    else:
+        # Pure numpy mask
+        mask = diff > 20
+        rows = np.nonzero(mask.any(axis=1))[0]
+        cols = np.nonzero(mask.any(axis=0))[0]
+        if rows.size > 20 and cols.size > 20:
+            y0, y1 = int(rows.min()), int(rows.max())
+            x0, x1 = int(cols.min()), int(cols.max())
+            if (y1 - y0) > H * 0.15 and y0 < H * 0.50:
+                return {
+                    "bbox": (x0, y0, x1 - x0, y1 - y0),
+                    "chin_y": int(y0 + (y1 - y0) * 0.85),
+                    "confidence": 0.70,
+                }
     return None
 
 
@@ -216,32 +244,37 @@ def verify_face_safety_margin(
     Returns:
         (is_safe, failure_reason)
     """
-    if not face_info:
-        return True, None
-
     cx, cy, cw, ch = crop_box
     c_bottom = cy + ch
     c_right = cx + cw
 
+    # Fallback protection when face not explicitly detected:
+    # A bottom crop cutting into the top 65% of the portrait is dangerously invading
+    # the subject's head/neck area.
+    if not face_info:
+        if c_bottom < int(img_h * 0.65):
+            return False, f"crop bottom ({c_bottom}px) cuts into upper 65% of portrait ({int(img_h*0.65)}px) without face confirmation"
+        return True, None
+
     fx, fy, fw, fh = face_info["bbox"]
     chin_y = face_info["chin_y"]
 
-    # If cutting from bottom, bottom of crop box must be below the chin
+    # If cutting from bottom, bottom of crop box must be strictly below chin + safety margin
     if c_bottom < img_h:
-        if c_bottom < (chin_y - safety_margin_px):
-            return False, f"crop bottom ({c_bottom}px) invades chin/face line ({chin_y}px)"
+        if c_bottom < (chin_y + safety_margin_px):
+            return False, f"crop bottom ({c_bottom}px) invades chin/face line ({chin_y}px + {safety_margin_px}px margin)"
 
     # If cutting from top, top of crop box must be above the face top
     if cy > 0:
-        if cy > (fy + safety_margin_px):
+        if cy > max(0, fy - safety_margin_px):
             return False, f"crop top ({cy}px) cuts into forehead/face top ({fy}px)"
 
     # If cutting from left, left of crop box must not enter face left
-    if cx > 0 and cx > (fx + safety_margin_px):
+    if cx > 0 and cx > max(0, fx - safety_margin_px):
         return False, f"crop left ({cx}px) cuts into face left edge ({fx}px)"
 
     # If cutting from right, right of crop box must not enter face right
-    if c_right < img_w and c_right < (fx + fw - safety_margin_px):
+    if c_right < img_w and c_right < (fx + fw + safety_margin_px):
         return False, f"crop right ({c_right}px) cuts into face right edge ({fx+fw}px)"
 
     return True, None

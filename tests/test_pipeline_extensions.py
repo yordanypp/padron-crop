@@ -163,3 +163,149 @@ def test_navicat_csv_processing(tmp_path):
     assert res["ok"] == 1
     assert (out / "001-0000000-1_crop.jpg").exists()
 
+
+def test_navicat_csv_huge_base64_field_limit(tmp_path):
+    from tools.navicat_helper import process_navicat_csv
+
+    # Default python csv field_size_limit is 131,072 bytes.
+    # We test with a base64 field exceeding 160,000 bytes.
+    # Create valid JPEG data with padding
+    im = Image.new("RGB", (60, 60), (220, 220, 220))
+    for y in range(48, 60):
+        for x in range(60):
+            im.putpixel((x, y), (0, 0, 0))
+    img_io = Path(tmp_path / "small.jpg")
+    im.save(img_io, "JPEG")
+    real_jpg_bytes = img_io.read_bytes()
+    # Pad so total size is > 160 KB (> 131,072 bytes limit)
+    padded_jpg_bytes = real_jpg_bytes + (b"\x00" * 150000)
+    raw_b64 = base64.b64encode(padded_jpg_bytes).decode()
+    b64_padded = "data:image/jpeg;base64," + raw_b64
+    assert len(b64_padded) > 140000
+
+    csv_file = tmp_path / "huge_export.csv"
+    csv_file.write_text(f'id,foto\nREC01,"{b64_padded}"\n', encoding="utf-8")
+
+    out = tmp_path / "out_huge"
+    res = process_navicat_csv(csv_file, out, image_column="foto", id_column="id")
+    assert res["total"] == 1
+    # Successfully parsed without CSV field_size_limit crash
+    assert res["ok"] == 1
+
+
+def test_navicat_csv_semicolon_delimiter(tmp_path):
+    from tools.navicat_helper import process_navicat_csv
+
+    im = Image.new("RGB", (60, 60), (220, 220, 220))
+    for y in range(48, 60):
+        for x in range(60):
+            im.putpixel((x, y), (0, 0, 0))
+    img_io = Path(tmp_path / "semi.jpg")
+    im.save(img_io, "JPEG")
+    b64 = "data:image/jpeg;base64," + base64.b64encode(img_io.read_bytes()).decode()
+
+    csv_file = tmp_path / "spanish_excel_navicat.csv"
+    # Semicolon separated, common in Spanish Windows locale; fields with delimiters quoted
+    csv_file.write_text(f'id;cedula;foto;nombre\n1;402-1234567-8;"{b64}";JUAN PEREZ\n', encoding="utf-8")
+
+    out = tmp_path / "out_semi"
+    res = process_navicat_csv(csv_file, out, image_column="foto", id_column="cedula")
+    assert res["total"] == 1
+    assert res["ok"] == 1
+    assert (out / "402-1234567-8_crop.jpg").exists()
+
+
+def test_cmyk_image_conversion_and_icc_cleanup(tmp_path):
+    # Create a CMYK image
+    im_cmyk = Image.new("CMYK", (80, 80), (0, 100, 100, 0))
+    p = tmp_path / "sample_cmyk.jpg"
+    im_cmyk.save(p, "JPEG")
+
+    im, arr = crop.load_luma_ready(p)
+    assert im.mode == "RGB"
+    assert "icc_profile" not in im.info
+
+    out_dir = tmp_path / "out_cmyk"
+    rec = crop.crop_image(p, out_dir)
+    assert rec["status"] in ("ok", "noop")
+
+
+def test_palette_transparency_composited_to_white(tmp_path):
+    # Palette with transparent pixels saved to PNG
+    p = tmp_path / "test_p_transparency.png"
+    im_p = Image.new("P", (60, 60), color=0)
+    im_p.save(p, transparency=0)
+
+    im, arr = crop.load_luma_ready(p)
+    # The transparent pixels must be white (255, 255, 255), not black (0, 0, 0)
+    assert np.all(arr[30, 30] > 250)
+
+
+def test_aspect_ratio_clamping():
+    # Box with wide aspect ratio on small canvas
+    box = (10, 10, 100, 50)
+    # Request 1:1 square
+    new_box = crop._apply_aspect_ratio(box, "1:1", max_w=120, max_h=120)
+    x, y, w, h = new_box
+    assert x >= 0 and y >= 0
+    assert x + w <= 120 and y + h <= 120
+    assert w == h
+
+    # Extreme ratio
+    new_box2 = crop._apply_aspect_ratio((0, 0, 200, 100), "3:4", max_w=200, max_h=100)
+    x2, y2, w2, h2 = new_box2
+    assert x2 >= 0 and y2 >= 0
+    assert x2 + w2 <= 200 and y2 + h2 <= 100
+
+
+def test_deskew_white_fill():
+    from padron_crop.opencv_ext import deskew_image
+
+    # Create solid blue image
+    im = Image.new("RGB", (100, 100), (0, 0, 255))
+    rotated = deskew_image(im, angle_deg=5.0)
+    # Corner at (0, 0) should be white (255, 255, 255) rather than black (0, 0, 0)
+    corner_pixel = rotated.getpixel((0, 0))
+    assert corner_pixel == (255, 255, 255), f"Expected white fill, got {corner_pixel}"
+
+
+def test_sql_assert_read_only_with_bom():
+    from padron_crop.ingest.sql import assert_read_only
+
+    # UTF-8 BOM prefix \ufeff
+    stmt = "\ufeffSELECT foto FROM ciudadanos WHERE id = 1"
+    res = assert_read_only(stmt)
+    assert res == stmt
+
+    with pytest.raises(ValueError):
+        assert_read_only("\ufeffDELETE FROM ciudadanos")
+
+
+def test_sql_decode_base64_with_newlines_and_urlsafe():
+    raw_png = b"\x89PNG\r\n\x1a\n" + b"SAMPLE_IMAGE_DATA_12345"
+    b64 = base64.b64encode(raw_png).decode()
+    # Add newlines every 10 chars
+    b64_with_newlines = "\r\n".join([b64[i:i+10] for i in range(0, len(b64), 10)])
+
+    raw, path, ext = decode_db_image(b64_with_newlines)
+    assert raw == raw_png
+    assert ext == ".png"
+
+
+def test_grayscale_monochromatic_face_detection():
+    from padron_crop.opencv_ext import detect_face_and_chin
+
+    # Synthetic portrait: gray background (180), dark hair/face oval in center (80)
+    arr = np.full((300, 200, 3), 180, dtype=np.uint8)
+    # Draw dark oval/head in upper region
+    for y in range(40, 180):
+        for x in range(50, 150):
+            arr[y, x] = [70, 70, 70]
+
+    info = detect_face_and_chin(arr)
+    assert info is not None
+    assert "bbox" in info
+    assert "chin_y" in info
+    assert info["chin_y"] > 100
+
+

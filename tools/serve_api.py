@@ -19,7 +19,7 @@ import json
 import os
 import sys
 import tempfile
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 # Add src to sys.path
@@ -32,18 +32,31 @@ from padron_crop.gallery import build_gallery
 
 class PadronCropHandler(BaseHTTPRequestHandler):
     out_dir = Path("out/api_server")
+    MAX_PAYLOAD_BYTES = 50 * 1024 * 1024  # 50MB protection
 
     def log_message(self, format, *args):
         # Clean logging
         sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
+
+    def _send_cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 
     def _send_json(self, status_code: int, data: dict):
         body = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self._send_cors_headers()
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._send_cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self):
         if self.path in ("/health", "/health/"):
@@ -63,6 +76,7 @@ class PadronCropHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(html)))
+                self._send_cors_headers()
                 self.end_headers()
                 self.wfile.write(html)
             else:
@@ -74,8 +88,17 @@ class PadronCropHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
-        if self.path == "/crop/json":
+        try:
             content_length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self._send_json(400, {"error": "Invalid Content-Length header"})
+            return
+
+        if content_length > self.MAX_PAYLOAD_BYTES:
+            self._send_json(413, {"error": f"Payload exceeds {self.MAX_PAYLOAD_BYTES} bytes limit"})
+            return
+
+        if self.path == "/crop/json":
             if content_length <= 0:
                 self._send_json(400, {"error": "Missing request body"})
                 return
@@ -113,11 +136,13 @@ class PadronCropHandler(BaseHTTPRequestHandler):
                     rec["cropped_base64"] = base64.b64encode(Path(out_p).read_bytes()).decode("utf-8")
                 self._send_json(200, rec)
             finally:
-                tmp_path.unlink(missing_ok=True)
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
             return
 
         if self.path == "/crop":
-            content_length = int(self.headers.get("Content-Length", 0))
             if content_length <= 0:
                 self._send_json(400, {"error": "Empty body"})
                 return
@@ -137,12 +162,16 @@ class PadronCropHandler(BaseHTTPRequestHandler):
                     self.send_header("Content-Length", str(len(data)))
                     self.send_header("X-Crop-Status", rec["status"])
                     self.send_header("X-Crop-Box", json.dumps(rec.get("crop_box_xywh")))
+                    self._send_cors_headers()
                     self.end_headers()
                     self.wfile.write(data)
                 else:
                     self._send_json(422, rec)
             finally:
-                tmp_path.unlink(missing_ok=True)
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
             return
 
         self._send_json(404, {"error": f"Endpoint not found: {self.path}"})
@@ -151,7 +180,7 @@ class PadronCropHandler(BaseHTTPRequestHandler):
 def run_server(host: str = "0.0.0.0", port: int = 8000, out_dir: str = "out/api_server"):
     PadronCropHandler.out_dir = Path(out_dir)
     server_address = (host, port)
-    httpd = HTTPServer(server_address, PadronCropHandler)
+    httpd = ThreadingHTTPServer(server_address, PadronCropHandler)
     print(f"============================================================")
     print(f"  PADRÓN CROP MICRO-API LISTA EN http://{host}:{port}")
     print(f"  - Health check:     http://localhost:{port}/health")

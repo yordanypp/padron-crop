@@ -52,19 +52,23 @@ def load_luma_ready(path: Path) -> tuple[Image.Image, np.ndarray]:
 
     The numpy array aliases the PIL raster (mode RGB, no convert copy) so
     there is a single pixel buffer. The PIL object stays open for saving.
-    Transparent images (RGBA, LA, palette with alpha) are composited over a
+    Transparent images (RGBA, LA, PA, palette with alpha) are composited over a
     clean white background to prevent transparent edges from becoming false
     black bars.
     """
     im = Image.open(path)
+    im.load()
     im = ImageOps.exif_transpose(im)
-    if im.mode in ("RGBA", "LA") or (im.mode == "P" and "transparency" in im.info):
+    is_cmyk = (im.mode == "CMYK")
+    if im.mode in ("RGBA", "LA", "PA") or (im.mode == "P" and "transparency" in im.info):
         im_rgba = im.convert("RGBA")
         bg = Image.new("RGBA", im_rgba.size, (255, 255, 255, 255))
         bg.alpha_composite(im_rgba)
         im = bg.convert("RGB")
     elif im.mode != "RGB":
         im = im.convert("RGB")
+    if is_cmyk and "icc_profile" in im.info:
+        im.info.pop("icc_profile", None)
     arr = np.asarray(im)              # single buffer: numpy aliases PIL raster
     return im, arr
 
@@ -97,13 +101,15 @@ def _apply_aspect_ratio(box: tuple[int, int, int, int], target_ratio: str, max_w
     if abs(cur - target) < 1e-3:
         return box
     if cur > target:
-        new_w = max(1, int(round(bh * target)))
+        new_w = min(max_w, max(1, int(round(bh * target))))
         diff = bw - new_w
-        new_x = min(max_w - new_w, max(0, bx + diff // 2))
+        new_x = max(0, min(max_w - new_w, bx + diff // 2))
         return (new_x, by, new_w, bh)
     else:
-        new_h = max(1, int(round(bw / target)))
-        return (bx, by, bw, min(bh, new_h))
+        new_h = min(max_h, max(1, int(round(bw / target))))
+        diff = bh - new_h
+        new_y = max(0, min(max_h - new_h, by + diff // 2))
+        return (bx, new_y, bw, new_h)
 
 
 def _save_output(im: Image.Image, out_path: Path, src_path: Path, quality: int = 95) -> None:
@@ -160,6 +166,7 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
         "status": "failed",
         "error": None,
     }
+    im = None
     try:
         rec["sha256"] = _sha256_file(src)
         im, arr = load_luma_ready(src)
@@ -255,3 +262,9 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
         rec["error"] = f"{type(e).__name__}: {e}"
         rec["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
         return rec
+    finally:
+        if im is not None:
+            try:
+                im.close()
+            except Exception:
+                pass

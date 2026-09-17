@@ -42,14 +42,30 @@ def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
 
     summary = {"total": 0, "ok": 0, "quarantine": 0, "failed": 0, "noop": 0}
 
-    with open(csv_path, mode="r", encoding="utf-8-sig", errors="replace") as f:
-        # Sniff delimiter (comma, semicolon, tab)
-        sample = f.read(4096)
-        f.seek(0)
+    # Elevate CSV field size limit safely across 32/64-bit platforms (supports huge Base64)
+    max_limit = sys.maxsize
+    while True:
         try:
-            dialect = csv.Sniffer().sniff(sample)
+            csv.field_size_limit(max_limit)
+            break
+        except OverflowError:
+            max_limit = int(max_limit / 10)
+
+    with open(csv_path, mode="r", encoding="utf-8-sig", errors="replace") as f:
+        # Sniff delimiter (comma, semicolon, tab, pipe)
+        sample = f.read(8192)
+        f.seek(0)
+        first_line = sample.splitlines()[0] if sample else ""
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=[",", ";", "\t", "|"])
         except Exception:
-            dialect = csv.excel
+            if ";" in first_line and "," not in first_line:
+                dialect = csv.excel
+                dialect.delimiter = ";"
+            elif "\t" in first_line:
+                dialect = csv.excel_tab
+            else:
+                dialect = csv.excel
 
         reader = csv.DictReader(f, dialect=dialect)
         if not reader.fieldnames:

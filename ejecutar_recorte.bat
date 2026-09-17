@@ -41,7 +41,7 @@ echo  [2] Procesamiento Masivo con Checkpoints y ETA en Vivo
 echo  [3] Asistente Navicat (Procesar CSV / Blobs sin Contraseña)
 echo  [4] Procesar Imagen de Muestra (Prototipo 0aaa2b82... JPG)
 echo  [5] Abrir Galería Visual Interactiva (Auditoría QA Antes / Después)
-echo  [6] Ejecutar Suite Completa de Pruebas (115 Tests Automatizados)
+echo  [6] Ejecutar Suite Completa de Pruebas (124 Tests Automatizados)
 echo  [7] Iniciar Servidor Micro-API Local (Para Integraciones / Red)
 echo  [8] Salir
 echo.
