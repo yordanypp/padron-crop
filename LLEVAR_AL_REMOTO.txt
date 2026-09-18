@@ -1,17 +1,46 @@
-LLEVAR AL REMOTO - checklist (5 min)
-====================================
+LLEVAR AL REMOTO - todo lo que necesitas saber (1 pagina)
+==========================================================
+Repo (publico, sin clave): https://github.com/yordanypp/padron-crop
 
-Repo publico: https://github.com/yordanypp/padron-crop
+REQUISITO: Python 3.10+ con "Add Python to PATH" (python.org/downloads).
 
-[ ] 1. En el remoto: git clone https://github.com/yordanypp/padron-crop.git
-        (sin token: es publico. O copia la carpeta por RDP/USB.)
-[ ] 2. Doble clic en instalar_servidor.bat (solo la primera vez).
-[ ] 3. Doble clic en ejecutar_recorte.bat > opcion [4] (prueba 2 min).
-[ ] 4. Opcion [1] EDA con la carpeta real (te da el tiempo exacto).
-[ ] 5. Opcion [2] procesamiento masivo: ENTER, ENTER, ENTER.
+INSTALAR (1 vez): git clone <repo> > doble clic instalar_servidor.bat.
+  Instala numpy + Pillow + OpenCV y se autoverifica. 1-2 min.
 
-Si se corta la luz/red: opcion [2] > misma carpeta destino > R (reanudar).
-Actualizar codigo sin tocar datos: git pull origin main.
+PROBAR ALLA (en este orden):
+  [4] 1 foto real (2 min) > [9] 300 fotos sinteticas (ensayo general) >
+  [1] EDA con tu carpeta real (dice tiempo exacto de ESA maquina) >
+  [2] masivo: ENTER, ENTER, ENTER.
 
-Resultados en carpeta destino: entrega/ + manifest_import.csv +
-gallery.html + audit.csv. Detalle: GUIA_DESPLIEGUE_SERVIDOR_WINDOWS.md
+MENU: [1]EDA [2]Masivo+checkpoint [3]Navicat/CSV [4]Muestra [5]Galeria
+  [6]Tests [7]API [8]50 variantes [9]300 fotos [0]Reinstalar [X]Salir.
+
+WORKERS: todo es AUTO (0). Servidor potente = usa todos los nucleos;
+  PC vieja = baja solo a lo que cabe en RAM. Forzar: opcion A > numero,
+  o variable PADRON_WORKERS. Nunca pasa de nucleos ni del 75% RAM libre.
+
+RESULTADOS (carpeta destino): entrega/ (000001_<id>_crop.jpg ordenadas)
+  + manifest_import.csv (Excel/Navicat) + gallery.html (antes/despues)
+  + audit.csv + state.jsonl/checkpoint.jsonl.
+
+NAVCAT: opcion [3], CSV (ENTER=foto, ENTER=cedula) o carpeta directa.
+  La columna ID se elige en el momento (cedula/id/codigo...).
+
+SI SE CORTA LA LUZ: opcion [2] > misma destino > R = sigue sin duplicar
+  (probado con apagon simulado: 0 duplicados). Fotos jamas a medias
+  (escritura atomica) ni originales tocados (solo lectura).
+SI FALLA ALGO ALLA (flujo oficial):
+  1. Me avisas aqui con el error o foto del error.
+  2. Lo arreglo y lo subo a GitHub (te confirmo).
+  3. Alla: doble clic en actualizar_y_seguir.bat > ENTER.
+     Trae el arreglo (git pull) y sigue el lote donde iba (--resume
+     + workers AUTO). Sin pull a mano, sin repetir, sin perder nada.
+ACTUALIZAR MANUAL: git pull origin main (no toca fotos ni progreso).
+
+VELOCIDAD REF: 2 nucleos ~12-15k/h | 4 nucleos ~30k/h | 8+ ~50k+/h.
+  Fotos 100MP tardan ~26s c/u. EDA confirma en tu maquina.
+
+LIMITES HONESTOS: quarantine = el motor duda y aparta (revisar gallery);
+  failed = corrupto/ilegible (ver failed/); CSV sin comillas con columnas
+  despues de la foto puede fallar (usar export con comillas RFC4180);
+  disco lleno = el batch se detiene solo antes de danar nada.

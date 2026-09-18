@@ -156,9 +156,9 @@ def run_eda(src_dir: Path, out_dir: Path | None = None,
     est_sec_4 = round(est_sec_1 / 3.4, 1)
     est_sec_8 = round(est_sec_1 / 5.8, 1)
 
-    # Detect CPU cores for recommendation
-    cpu_cores = os.cpu_count() or 4
-    recommended_workers = min(max(1, cpu_cores - 1), 8)
+    # Workers recomendados: autotune (nucleos + RAM libre de ESTA maquina)
+    from padron_crop.autotune import recommend_workers as _auto_workers
+    recommended_workers = _auto_workers()
 
     # Estimate required output space (roughly 85% of input size with JPEG quality 95)
     disk_space_required_mb = round(total_mb * 0.90, 2)

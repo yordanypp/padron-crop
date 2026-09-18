@@ -158,7 +158,7 @@ def _append_audit(audit_path: Path, rec: dict) -> None:
         os.fsync(f.fileno())
 
 
-def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
+def run_batch(src: Path, out: Path, workers: int = 0, limit: int | None = None,
               resume: bool = False, state_path: Path | None = None,
               audit_path: Path | None = None, dry_run: bool = False,
               vision=None, stop: "safeio.Stop | None" = None,
@@ -166,6 +166,8 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
               quality: int = 95, aspect_ratio: str | None = None,
               checkpoint: bool = True, checkpoint_path: Path | None = None,
               progress: bool | None = None, entrega: bool = True) -> dict:
+    from padron_crop.autotune import effective_workers
+    workers = effective_workers(workers)
     src, out = Path(src), Path(out)
     out.mkdir(parents=True, exist_ok=True)
     state_path = Path(state_path) if state_path else out / "state.jsonl"
@@ -185,7 +187,8 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
     total_files = len(files)
     todo = [p for p in files if str(p) not in done]
     summary = {"ok": 0, "noop": 0, "quarantine": 0, "failed": 0, "skipped": 0,
-               "interrupted": False, "stop_reason": None}
+               "interrupted": False, "stop_reason": None,
+               "workers_used": workers}
     summary["skipped"] = sum(1 for p in files if str(p) in done)
 
     if resume and len(done) > 0 and (progress is None or progress):

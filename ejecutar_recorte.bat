@@ -72,15 +72,19 @@ echo  [2] Procesamiento Masivo - Con checkpoints automáticos y ETA en vivo
 echo  [3] Asistente Navicat / SQL - Procesar CSV o carpeta sin contraseñas
 echo  [4] Probar Imagen de Muestra - Ver recorte de '0aaa2b82...jpg'
 echo  [5] Abrir Galería Visual - Auditoría interactiva antes y después
-echo  [6] Ejecutar Pruebas Automatizadas - Certificar 129 tests unitarios
+echo  [6] Ejecutar Pruebas Automatizadas - Certificar tests unitarios
 echo  [7] Iniciar Micro-API Local - Servidor HTTP en puerto 8000
 echo  [8] Probar Variantes de Estrés - 50 fotos: PRM arriba, lados, marcos
 echo  [0] Reparar / Reinstalar Entorno - Recrear .venv y dependencias
-echo  [9] Salir
+echo  [9] Prueba 300 Fotos Sinteticas - Genera lote y lo procesa end-to-end
+echo  [X] Salir
+echo.
+echo  Si algo falla alla: avisa aqui, se arregla, y en el remoto abres
+echo  actualizar_y_seguir.bat (trae el arreglo y sigue solo).
 echo.
 echo =================================================================
 set "OPT="
-set /p OPT="Seleccione una opción [0-9]: "
+set /p OPT="Seleccione una opción [0-9, X]: "
 
 if "%OPT%"=="1" goto :RUN_EDA
 if "%OPT%"=="2" goto :RUN_BATCH
@@ -91,7 +95,8 @@ if "%OPT%"=="6" goto :RUN_TESTS
 if "%OPT%"=="7" goto :RUN_SERVER
 if "%OPT%"=="8" goto :RUN_VARIANTS
 if "%OPT%"=="0" goto :RUN_INSTALL
-if "%OPT%"=="9" exit /b 0
+if "%OPT%"=="9" goto :RUN_LOTE300
+if /i "%OPT%"=="X" exit /b 0
 
 :: Si no hay entrada disponible (EOF / consola cerrada) salir limpiamente
 if "!OPT!"=="" (
@@ -205,21 +210,21 @@ if "!RES_CHOICE!"=="" set RES_CHOICE=R
 if /i not "!RES_CHOICE!"=="N" set RESUME_FLAG=--resume
 :NO_CHECKPOINT_FOUND
 
-set WORKERS=4
+set WORKERS=0
 set DESKEW_FLAG=--deskew
 set ASPECT_FLAG=
 
 echo.
-echo Presione ENTER para iniciar ya con configuración óptima:
-echo (4 núcleos, enderezado inteligente, máxima calidad)
+echo Presione ENTER para iniciar ya con configuración AUTOMATICA:
+echo (detecta nucleos y RAM de ESTA maquina, enderezado inteligente, maxima calidad)
 echo O escriba 'A' para configuración avanzada:
 set /p ADV_OPT="[ENTER = Iniciar Ya / A = Avanzado]: "
 if /i not "!ADV_OPT!"=="A" goto :SKIP_ADV_SETTINGS
 
 echo.
-echo 1. Cantidad de núcleos de CPU para procesar en paralelo [4]:
-set /p WORKERS="Workers [4]: "
-if "!WORKERS!"=="" set WORKERS=4
+echo 1. Cantidad de núcleos de CPU para procesar en paralelo [0=AUTO]:
+set /p WORKERS="Workers [0]: "
+if "!WORKERS!"=="" set WORKERS=0
 
 echo.
 echo 2. Corrección de fotos inclinadas (Deskew):
@@ -243,7 +248,11 @@ echo =================================================================
 echo [INICIANDO PROCESAMIENTO DETERMINISTA]
 echo - Carpeta origen  : "!SRC_DIR!"
 echo - Carpeta destino : "!OUT_DIR!"
-echo - Núcleos (CPU)   : !WORKERS! workers
+if "!WORKERS!"=="0" (
+    echo - Nucleos (CPU)   : AUTO segun esta maquina
+) else (
+    echo - Nucleos (CPU)   : !WORKERS! workers
+)
 echo - Estado          : Ejecutando... (Presione Ctrl+C si desea pausar)
 echo =================================================================
 echo.
@@ -478,7 +487,7 @@ echo [1/3] Generando banco de fotos variantes en: pruebas_variantes\antes...
 
 echo.
 echo [2/3] Procesando variantes con el motor actual (padron_crop batch)...
-%PY_CMD% -m padron_crop batch --src pruebas_variantes\antes --out pruebas_variantes\despues --workers 4
+%PY_CMD% -m padron_crop batch --src pruebas_variantes\antes --out pruebas_variantes\despues --workers 0
 
 echo.
 echo [3/3] Generando comparador visual antes/después...
@@ -490,5 +499,48 @@ echo [EXITO] Prueba completada. Abriendo comparador visual en el navegador...
 if exist "pruebas_variantes\00_visualizador_antes_despues.html" (
     start "" "pruebas_variantes\00_visualizador_antes_despues.html"
 )
+pause
+goto :MENU
+
+:: -------------------------------------------------------------------
+:: [9] PRUEBA DE 300 FOTOS SINTÉTICAS (ensayo general del remoto)
+:: -------------------------------------------------------------------
+:RUN_LOTE300
+cls
+echo =================================================================
+echo      [9] PRUEBA DE 300 FOTOS SINTETICAS (ensayo del remoto)
+echo =================================================================
+echo.
+echo Genera 300 fotos realistas desde la foto real del padron
+echo (clones + variantes PRM + casos corruptos) y las procesa
+echo end-to-end con workers AUTOMATICOS de ESTA maquina.
+echo.
+echo Desea ejecutar la prueba de 300 fotos ahora mismo?
+set /p DO_LOTE="Ejecutar prueba? [S/N, default S]: "
+if "!DO_LOTE!"=="" set DO_LOTE=S
+if /i not "!DO_LOTE!"=="S" goto :MENU
+
+echo.
+echo [1/3] Generando lote de 300 fotos en: pruebas_variantes\lote300...
+if exist "pruebas_variantes\lote300" rmdir /s /q "pruebas_variantes\lote300"
+%PY_CMD% tools\make_lot.py --out pruebas_variantes\lote300 --n 300 --seed 7
+if errorlevel 1 (
+    echo [ERROR] No se pudo generar el lote de prueba.
+    pause
+    goto :MENU
+)
+
+echo.
+echo [2/3] Procesando lote con workers AUTOMATICOS (padron_crop batch)...
+if exist "out\lote300_limpias" rmdir /s /q "out\lote300_limpias"
+%PY_CMD% -m padron_crop batch --src pruebas_variantes\lote300 --out out\lote300_limpias --workers 0
+
+echo.
+echo [3/3] Generando galeria de auditoria...
+%PY_CMD% -m padron_crop gallery --out out\lote300_limpias
+if exist "out\lote300_limpias\gallery.html" start "" "out\lote300_limpias\gallery.html"
+echo.
+echo [INFO] Entrega ordenada en: out\lote300_limpias\entrega\
+echo [INFO] Control para Excel/Navicat: out\lote300_limpias\manifest_import.csv
 pause
 goto :MENU

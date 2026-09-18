@@ -79,7 +79,7 @@ def cmd_batch(args) -> int:
 
     try:
         summary = run_batch(Path(args.src), Path(args.out),
-                            workers=max(1, args.workers), limit=args.limit,
+                            workers=args.workers, limit=args.limit,
                             resume=args.resume, dry_run=args.dry_run,
                             vision=_vision_client(args), stop=stop,
                             deskew=getattr(args, "deskew", False),
@@ -265,7 +265,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("batch", help="process a folder recursively")
     sp.add_argument("--src", required=True)
     sp.add_argument("--out", required=True)
-    sp.add_argument("--workers", type=int, default=1)
+    sp.add_argument("--workers", type=int, default=0,
+                    help="0=automatico segun la maquina (recomendado)")
     sp.add_argument("--limit", type=int, default=None)
     sp.add_argument("--resume", action="store_true")
     sp.add_argument("--dry-run", action="store_true",
