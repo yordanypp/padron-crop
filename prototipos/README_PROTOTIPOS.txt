@@ -20,7 +20,17 @@ Esta carpeta contiene los prototipos listos para mostrar a tu supervisor o equip
 
 5. 05_visualizador_comparativo.html
    - Abre este archivo con doble clic en cualquier navegador (Chrome, Edge, Firefox).
-   - Muestra la comparativa lado a lado con diseño profesional, medidas exactas y estados.
+   - Muestra la comparativa lado a lado con disenyo profesional, medidas exactas y estados.
+
+6. Prototipos_Padron_Crop.pdf
+   - Version PDF del visualizador comparativo, con el mismo disenyo oscuro del HTML.
+   - Listo para enviar por WhatsApp o correo al supervisor.
+   - Para regenerarlo: .venv\Scripts\python.exe tools\generar_pdf_prototipos.py
+
+7. Prototipos_Padron_1.jpg / Prototipos_Padron_2.jpg
+   - Cada pagina del PDF como imagen JPG.
+   - WhatsApp NO muestra vista previa de PDFs, pero SI muestra estas fotos.
+   - Manda estas 2 imagenes por WhatsApp para que el super las vea sin abrir nada.
 
 Para procesar nuevas fotos:
 - Haz doble clic en "ejecutar_recorte.bat" en la raíz del proyecto.
