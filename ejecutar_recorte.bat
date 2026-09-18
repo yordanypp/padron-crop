@@ -314,8 +314,16 @@ if "!OUT_DIR!"=="" set OUT_DIR=out\navicat_procesado
 set "OUT_DIR=!OUT_DIR:"=!"
 if "!OUT_DIR:~-1!"=="\" if not "!OUT_DIR:~-2!"==":\" set "OUT_DIR=!OUT_DIR:~0,-1!"
 
-set COL_FOTO=foto
-set COL_ID=cedula
+echo.
+echo Columna con la foto en el CSV [ENTER=foto]:
+set "COL_FOTO="
+set /p COL_FOTO="Columna foto > "
+if "!COL_FOTO!"=="" set COL_FOTO=foto
+echo.
+echo Columna ID para nombrar la entrega (cedula, id, codigo...) [ENTER=cedula]:
+set "COL_ID="
+set /p COL_ID="Columna ID > "
+if "!COL_ID!"=="" set COL_ID=cedula
 
 echo.
 echo =================================================================

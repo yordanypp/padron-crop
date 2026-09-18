@@ -34,7 +34,7 @@ def test_batch_recursive_and_sidecars(tmp_path):
     out = tmp_path / "out"
     summary = run_batch(src, out, workers=2, limit=None, resume=False, state_path=out / "state.jsonl", audit_path=out / "audit.csv")
     assert summary["ok"] == 7
-    assert len(list(out.rglob("*.jpg"))) == 7
+    assert len([x for x in out.rglob("*.jpg") if x.parent.name != "entrega"]) == 7
     sidecars = list(out.rglob("*.json"))
     assert len(sidecars) == 7
     sc = json.loads(sidecars[0].read_text(encoding="utf-8"))

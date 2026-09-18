@@ -110,6 +110,7 @@ def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
             print(f"[INFO] Usando columna ID para nombrar archivos: '{id_column}'")
 
         count = 0
+        _temp_paths: list[Path] = []  # se borran DESPUÉS de armar la entrega
         for row in reader:
             if limit and count >= limit:
                 break
@@ -174,23 +175,33 @@ def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
                 aspect_ratio=aspect_ratio,
                 quality=quality,
             )
+            rec["delivery_id"] = row_id  # id elegido en el momento (cedula/id/...)
             st = rec.get("status", "failed")
             summary[st] = summary.get(st, 0) + 1
             summary["total"] += 1
 
             if temp_written:
-                try:
-                    target_p.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                _temp_paths.append(target_p)
 
+    # Build gallery
+    build_gallery(out_dir)
+    # Delivery pack: entrega/ + manifest_import.csv ordenado por id
+    # (se arma ANTES de borrar los temporales: los noop copian desde ahí)
+    try:
+        from padron_crop.entrega import build_delivery
+        summary["delivery"] = build_delivery(out_dir)
+    except Exception as e:  # la entrega nunca tumba el proceso
+        summary["delivery_error"] = f"{type(e).__name__}: {e}"
+
+    for tp in _temp_paths:
+        try:
+            tp.unlink(missing_ok=True)
+        except OSError:
+            pass
     try:
         temp_dir.rmdir()
     except OSError:
         pass
-
-    # Build gallery
-    build_gallery(out_dir)
     return summary
 
 
@@ -208,14 +219,23 @@ def main():
     sp_csv.add_argument("--aspect-ratio", default=None, help="Formato de proporción opcional (ej: 3:4, 1:1, 4:5)")
     sp_csv.add_argument("--quality", type=int, default=95, help="Calidad JPEG (1-100, default: 95)")
     sp_csv.add_argument("--limit", type=int, default=None, help="Límite de registros")
+    sp_csv.add_argument("--id-col-prompt", action="store_true",
+                        help="Preguntar interactivamente la columna ID en el momento")
 
     args = p.parse_args()
     if args.mode == "csv":
+        id_col = args.id_col
+        if getattr(args, "id_col_prompt", False) or id_col is None:
+            try:
+                typed = input("Columna ID para nombrar la entrega [ENTER=cedula, o escribe: id, codigo, ...]: ").strip()
+            except EOFError:
+                typed = ""
+            id_col = typed or "cedula"
         res = process_navicat_csv(
             Path(args.csv),
             Path(args.out),
             image_column=args.col,
-            id_column=args.id_col,
+            id_column=id_col,
             deskew=args.deskew,
             face_safety=not args.no_face_safety,
             aspect_ratio=args.aspect_ratio,

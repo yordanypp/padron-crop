@@ -251,6 +251,11 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
             rec["status"] = "noop"
             rec["out_path"] = str(src)  # untouched, byte-identical
             rec["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
+            if not dry_run:
+                try:
+                    safeio.atomic_write_json(out_dir / (src.stem + ".json"), rec)
+                except OSError:
+                    pass
             return rec
 
         if det.status == "quarantine":

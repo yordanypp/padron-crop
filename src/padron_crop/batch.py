@@ -165,7 +165,7 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
               deskew: bool = False, face_safety: bool = True,
               quality: int = 95, aspect_ratio: str | None = None,
               checkpoint: bool = True, checkpoint_path: Path | None = None,
-              progress: bool | None = None) -> dict:
+              progress: bool | None = None, entrega: bool = True) -> dict:
     src, out = Path(src), Path(out)
     out.mkdir(parents=True, exist_ok=True)
     state_path = Path(state_path) if state_path else out / "state.jsonl"
@@ -343,4 +343,10 @@ def run_batch(src: Path, out: Path, workers: int = 1, limit: int | None = None,
             is_complete = (len(done) + processed_this_run >= total_files) and not summary.get("interrupted")
             _save_checkpoint(status_label="completed" if is_complete else "interrupted")
             summary["checkpoint"] = str(checkpoint_file)
+        if entrega and not dry_run and not summary.get("interrupted"):
+            try:
+                from padron_crop.entrega import build_delivery
+                summary["delivery"] = build_delivery(out)
+            except Exception as e:  # la entrega nunca tumba el lote
+                summary["delivery_error"] = f"{type(e).__name__}: {e}"
     return summary

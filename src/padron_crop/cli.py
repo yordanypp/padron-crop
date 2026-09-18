@@ -87,7 +87,8 @@ def cmd_batch(args) -> int:
                             quality=getattr(args, "quality", 95),
                             aspect_ratio=getattr(args, "aspect_ratio", None),
                             checkpoint=checkpoint,
-                            progress=progress)
+                            progress=progress,
+                            entrega=not getattr(args, "no_entrega", False))
     except InsufficientSpace as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 3
@@ -285,6 +286,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="suppress interactive progress bar")
     sp.add_argument("--eda-first", action="store_true",
                     help="perform pre-flight dataset EDA profiling before batch processing")
+    sp.add_argument("--no-entrega", action="store_true",
+                    help="skip entrega/ + manifest_import.csv delivery pack")
     sp.add_argument("--allow-remote-ai", action="store_true",
                     help="ENABLE D4 vision on TEST COPIES only (off by default)")
     sp.add_argument("--provider", choices=["openai", "gemini", "grok"],

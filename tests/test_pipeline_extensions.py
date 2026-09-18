@@ -425,6 +425,83 @@ def test_api_server_live_endpoints(tmp_path):
         server.server_close()
 
 
+def test_delivery_pack_batch(tmp_path):
+    """Batch genera entrega/ + manifest_import.csv ordenado por id."""
+    import csv as _csv
+    import numpy as _np
+    from padron_crop.entrega import build_delivery
+    from padron_crop.batch import run_batch
+
+    def _bar(p, seed=0):
+        arr = _np.full((200, 200, 3), 180, _np.uint8)
+        arr[170:, :, :] = 5
+        arr[175:195, 60:140] = 230
+        Image.fromarray(arr).save(p, "JPEG")
+
+    src = tmp_path / "src"
+    src.mkdir()
+    _bar(src / "b_foto.jpg")
+    _bar(src / "a_foto.jpg")
+    out = tmp_path / "out"
+    summary = run_batch(src, out, workers=1, progress=False)
+    assert "delivery" in summary
+    entrega = out / "entrega"
+    assert entrega.is_dir()
+    files = sorted(p.name for p in entrega.iterdir())
+    assert len(files) == 2
+    # ordenado por id (stem): a_foto antes que b_foto
+    assert files[0].startswith("000001_a_foto")
+    assert files[1].startswith("000002_b_foto")
+    manifest = out / "manifest_import.csv"
+    assert manifest.exists()
+    with open(manifest, encoding="utf-8-sig") as f:
+        rows = list(_csv.DictReader(f))
+    assert [r["id"] for r in rows] == ["a_foto", "b_foto"]
+    assert rows[0]["archivo_limpio"].startswith("000001_")
+
+
+def test_delivery_pack_navicat_ids(tmp_path):
+    """Navicat usa la columna ID elegida (delivery_id) en la entrega."""
+    import csv as _csv
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    from navicat_helper import process_navicat_csv
+
+    buf = __import__("io").BytesIO()
+    Image.new("RGB", (60, 60), (200, 200, 200)).save(buf, format="JPEG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    csvp = tmp_path / "in.csv"
+    with open(csvp, "w", encoding="utf-8", newline="") as f:
+        w = _csv.writer(f)
+        w.writerow(["codigo", "foto"])
+        w.writerow(["Z-99", b64])
+        w.writerow(["A-01", b64])
+    out = tmp_path / "out"
+    res = process_navicat_csv(csvp, out, image_column="foto", id_column="codigo")
+    assert "delivery" in res
+    with open(out / "manifest_import.csv", encoding="utf-8-sig") as f:
+        rows = list(_csv.DictReader(f))
+    # ordenado por id: A-01 antes que Z-99
+    assert [r["id"] for r in rows] == ["A-01", "Z-99"]
+    assert rows[0]["archivo_limpio"].startswith("000001_A-01")
+
+
+def test_delivery_no_entrega_flag(tmp_path):
+    """--no-entrega omite el pack pero el lote sigue OK."""
+    import numpy as _np
+    from padron_crop.batch import run_batch
+    src = tmp_path / "src"
+    src.mkdir()
+    arr = _np.full((200, 200, 3), 180, _np.uint8)
+    arr[170:, :, :] = 5
+    arr[175:195, 60:140] = 230
+    Image.fromarray(arr).save(src / "x.jpg", "JPEG")
+    out = tmp_path / "out"
+    summary = run_batch(src, out, workers=1, progress=False, entrega=False)
+    assert "delivery" not in summary
+    assert not (out / "entrega").exists()
+
+
 
 
 
