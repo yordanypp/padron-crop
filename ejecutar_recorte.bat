@@ -85,7 +85,6 @@ echo.
 echo =================================================================
 set "OPT="
 set /p OPT="Opcion [0-9,X]: "
-set "OPT=!OPT: =!"
 
 if "%OPT%"=="1" goto :RUN_EDA
 if "%OPT%"=="2" goto :RUN_BATCH
@@ -251,11 +250,9 @@ echo =================================================================
 echo [INICIANDO PROCESAMIENTO DETERMINISTA]
 echo - Carpeta origen  : "!SRC_DIR!"
 echo - Carpeta destino : "!OUT_DIR!"
-if "!WORKERS!"=="0" (
-    echo - Nucleos (CPU)   : AUTO segun esta maquina
-) else (
-    echo - Nucleos (CPU)   : !WORKERS! workers
-)
+set "WORKERS_TXT=!WORKERS! workers"
+if "!WORKERS!"=="0" set "WORKERS_TXT=AUTO segun esta maquina"
+echo - Nucleos (CPU)   : !WORKERS_TXT!
 echo - Estado          : Ejecutando... (Presione Ctrl+C si desea pausar)
 echo =================================================================
 echo.
@@ -358,7 +355,12 @@ echo.
 %PY_CMD% tools\navicat_helper.py csv --csv "!CSV_PATH!" --out "!OUT_DIR!" --col "!COL_FOTO!" --id-col "!COL_ID!" --deskew
 if errorlevel 1 (
     echo.
-    echo [AVISO] Se detectó una advertencia durante el proceso de Navicat.
+    echo =================================================================
+    echo  [ERROR] Navicat termino con codigo !errorlevel!. Lea el mensaje
+    echo  rojo de arriba. Para reintentar use la opcion [3] de nuevo.
+    echo =================================================================
+    pause
+    goto :MENU
 )
 
 if exist "!OUT_DIR!\gallery.html" start "" "!OUT_DIR!\gallery.html"
