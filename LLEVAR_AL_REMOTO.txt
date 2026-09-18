@@ -1,0 +1,17 @@
+LLEVAR AL REMOTO - checklist (5 min)
+====================================
+
+Repo publico: https://github.com/yordanypp/padron-crop
+
+[ ] 1. En el remoto: git clone https://github.com/yordanypp/padron-crop.git
+        (sin token: es publico. O copia la carpeta por RDP/USB.)
+[ ] 2. Doble clic en instalar_servidor.bat (solo la primera vez).
+[ ] 3. Doble clic en ejecutar_recorte.bat > opcion [4] (prueba 2 min).
+[ ] 4. Opcion [1] EDA con la carpeta real (te da el tiempo exacto).
+[ ] 5. Opcion [2] procesamiento masivo: ENTER, ENTER, ENTER.
+
+Si se corta la luz/red: opcion [2] > misma carpeta destino > R (reanudar).
+Actualizar codigo sin tocar datos: git pull origin main.
+
+Resultados en carpeta destino: entrega/ + manifest_import.csv +
+gallery.html + audit.csv. Detalle: GUIA_DESPLIEGUE_SERVIDOR_WINDOWS.md
