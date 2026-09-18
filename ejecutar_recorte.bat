@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-chcp 65001 >nul
+chcp 65001 >nul <nul
 setlocal EnableDelayedExpansion
 
 title PADRÓN CROP - Panel de Control Automatizado (Windows 10 / 11)
@@ -84,7 +84,8 @@ echo  actualizar_y_seguir.bat (trae el arreglo y sigue solo).
 echo.
 echo =================================================================
 set "OPT="
-set /p OPT="Seleccione una opción [0-9, X]: "
+set /p OPT="Opcion [0-9,X]: "
+set "OPT=!OPT: =!"
 
 if "%OPT%"=="1" goto :RUN_EDA
 if "%OPT%"=="2" goto :RUN_BATCH
@@ -105,8 +106,8 @@ if "!OPT!"=="" (
     exit /b 0
 )
 
-echo Opción no válida.
-timeout /t 2 >nul
+echo Opción no válida: "[!OPT!]". Use 0-9 o X.
+>nul ping -n 3 127.0.0.1
 goto :MENU
 
 :: -------------------------------------------------------------------
@@ -115,6 +116,8 @@ goto :MENU
 :RUN_INSTALL
 cls
 call instalar_servidor.bat
+echo.
+pause
 goto :MENU
 
 :: -------------------------------------------------------------------
@@ -258,6 +261,16 @@ echo =================================================================
 echo.
 
 %PY_CMD% -m padron_crop batch --src "!SRC_DIR!" --out "!OUT_DIR!" --workers !WORKERS! !RESUME_FLAG! !DESKEW_FLAG! !ASPECT_FLAG!
+if errorlevel 1 (
+    echo.
+    echo =================================================================
+    echo  [ERROR] El procesamiento termino con codigo !errorlevel!.
+    echo  Revise el mensaje rojo de arriba. Nada se perdio: reabra la
+    echo  opcion [2] con la misma carpeta destino y elija R para seguir.
+    echo =================================================================
+    pause
+    goto :MENU
+)
 
 echo.
 echo [INFO] Generando galería de auditoría visual interactiva...
