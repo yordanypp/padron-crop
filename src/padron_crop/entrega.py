@@ -71,6 +71,14 @@ def build_delivery(out_dir: Path, records: list[dict] | None = None) -> dict:
             if isinstance(rec, dict) and "source" in rec:
                 records.append(rec)
 
+    # Dedupe por fuente (una reanudacion puede traer el mismo origen dos
+    # veces): gana el registro mas reciente.
+    seen: dict[str, dict] = {}
+    for r in records:
+        if isinstance(r, dict) and "source" in r:
+            seen[str(r["source"])] = r
+    records = list(seen.values())
+
     usable = [r for r in records if r.get("status") in ("ok", "noop", "quarantine")]
     usable.sort(key=lambda r: _delivery_id(r).lower())
 
@@ -125,6 +133,18 @@ def build_delivery(out_dir: Path, records: list[dict] | None = None) -> dict:
         w = csv.DictWriter(f, fieldnames=["orden", "id", "archivo_limpio", "estado", "origen"])
         w.writeheader()
         w.writerows(rows)
+
+    # Barrido de huérfanos: una corrida nueva no debe dejar archivos de
+    # corridas previas (nombres distintos por IDs distintos). Solo se tocan
+    # archivos con nuestro patrón *_crop.* dentro de nuestra carpeta.
+    wanted = {r["archivo_limpio"] for r in rows if r["archivo_limpio"]}
+    try:
+        for old in entrega.iterdir():
+            if (old.is_file() and old.name not in wanted
+                    and "_crop." in old.name):
+                old.unlink(missing_ok=True)
+    except OSError:
+        pass
 
     return {
         "entrega_dir": str(entrega),

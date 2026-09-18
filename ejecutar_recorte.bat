@@ -447,7 +447,7 @@ echo =================================================================
 echo      [6] EJECUTANDO SUITE COMPLETA DE PRUEBAS AUTOMATIZADAS
 echo =================================================================
 echo.
-echo Ejecutando 129 pruebas unitarias de regresión y seguridad...
+echo Ejecutando pruebas unitarias de regresión y seguridad...
 %PY_CMD% -m pytest -v
 echo.
 echo =================================================================

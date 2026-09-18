@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-chcp 65001 >nul
+chcp 65001 >nul <nul
 setlocal EnableDelayedExpansion
 
 title PADRÓN CROP - Panel de Control Automatizado (Windows 10 / 11)
@@ -101,7 +101,7 @@ if "!OPT!"=="" (
 )
 
 echo Opción no válida.
-timeout /t 2 >nul
+>nul ping -n 3 127.0.0.1
 goto :MENU
 
 :: -------------------------------------------------------------------

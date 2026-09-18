@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-chcp 65001 >nul
+chcp 65001 >nul <nul
 setlocal EnableDelayedExpansion
 
 title INSTALADOR AUTOMÁTICO - PADRÓN CROP (WINDOWS 10 / 11)
@@ -19,7 +19,7 @@ where python >nul 2>&1
 if %errorlevel% equ 0 set PYTHON_BIN=python
 if not defined PYTHON_BIN (
     where py >nul 2>&1
-    if %errorlevel% equ 0 set PYTHON_BIN=py
+    if not errorlevel 1 set PYTHON_BIN=py
 )
 
 if not defined PYTHON_BIN (
@@ -43,7 +43,7 @@ echo.
 echo [2/4] Creando entorno virtual local (.venv)...
 if not exist ".venv\Scripts\python.exe" (
     %PYTHON_BIN% -m venv .venv
-    if %errorlevel% neq 0 (
+    if errorlevel 1 (
         echo [ERROR] No se pudo crear el entorno virtual.
         pause
         exit /b 1
