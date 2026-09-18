@@ -1,0 +1,41 @@
+CONEXION POR ANYDESK A LA BASE DE DATOS - plan realista
+=====================================================
+Idea clave: NO conectas nada desde tu PC. Todo pasa DENTRO del remoto
+abriendo AnyDesk: clonas el repo ALLA, corres todo ALLA, las fotos
+nunca salen de alla. Aqui solo llegan errores/logs.
+
+PASO 0 - Reconocimiento (5 min, por AnyDesk, sin tocar nada):
+  [ ] Que motor es? (MySQL / SQL Server / Oracle / PostgreSQL / otro)
+      -> en Navicat se ve el tipo al conectar.
+  [ ] Como estan guardadas las fotos? (BLOB binario / texto base64 /
+      ruta de archivo). Abre 1 fila y mira la columna foto.
+  [ ] Nombres de: base de datos, tabla, columna foto, columna cedula.
+  [ ] Cuantas filas tiene la tabla? (SELECT COUNT)
+  [ ] Tienes usuario/clave de SOLO LECTURA? Si no, pedirlo a sistemas.
+  Anota las 5 respuestas y mandalas aqui si quieres que lo deje
+  preconfigurado.
+
+CAMINO A (recomendado, sin claves ni drivers): exportar + procesar
+  1. En Navicat (alla): clic derecho tabla > Export Wizard > CSV/TXT,
+     SOLO columnas cedula + foto, con comillas (RFC4180).
+  2. Opcion [3] del panel > arrastras el CSV > ENTER, ENTER.
+  3. Devuelves: entrega/ (000001_<cedula>_crop.jpg) + manifest_import.csv
+     El super o sistemas lo reimporta. Nada se escribe solo a la DB.
+
+CAMINO B (directo a la DB, solo lectura, requiere clave + driver):
+  1. Avisame el motor (paso 0) y te digo el driver exacto a instalar
+     (ej: pip install pymysql / pyodbc / oracledb) + formato del URL.
+  2. set PADRON_DB_URL=<url-sin-clave-en-pantalla> y el SQL solo hace
+     SELECT (esta bloqueado por codigo: rechaza UPDATE/DELETE).
+  3. Primero autodetecta columnas candidatas y pide confirmacion
+     humana antes de cualquier full-scan.
+
+LO QUE NO HAREMOS: escribir (UPDATE) fotos directo a la DB sin el DBA,
+sin backup y sin una prueba en tabla copia. Si el super lo pide, se
+habla con sistemas primero. Regla del proyecto: origen read-only.
+
+Preguntas exactas para el super/sistemas:
+  1. Motor y version de la base del padron?
+  2. Usuario de solo lectura para extraer las fotos?
+  3. Como devuelvo lo limpio: reimportan mi CSV/carpeta o actualiza DBA?
+  4. Tabla de prueba/copia para el primer ensayo?
