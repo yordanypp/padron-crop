@@ -183,9 +183,16 @@ def crop_image(src: Path, out_dir: Path, frozen: dict | None = None,
     try:
         rec["sha256"] = _sha256_file(src)
         im, arr = load_luma_ready(src)
-    except Exception as e:  # corrupt / 0 bytes / not an image
+    except Exception as e:  # corrupt / 0 bytes / not an image / decompression bomb
         rec["status"] = "failed"
-        rec["error"] = f"{type(e).__name__}: {e}"
+        kind = type(e).__name__
+        msg = str(e)
+        # Pillow raises DecompressionBombError / ValueError for blocked giants;
+        # surface it as a clear message instead of a generic failure.
+        if "DecompressionBomb" in kind or "exceeds" in msg.lower():
+            rec["error"] = f"image_too_large_blocked: {kind}: {msg}"
+        else:
+            rec["error"] = f"{kind}: {msg}"
         rec["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
         return rec
 

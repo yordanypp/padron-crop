@@ -117,9 +117,33 @@ def process_navicat_csv(csv_path: Path, out_dir: Path, image_column: str,
             if not raw_val:
                 continue
 
-            # Handle unquoted CSV where data:image/...;base64, was split by comma
-            if "data:image/" in raw_val and ";base64" in raw_val and None in row:
-                raw_val = raw_val + "," + ",".join(row[None])
+            # Handle unquoted CSV where data:image/...;base64, was split by comma.
+            # The base64 payload then lands in the NEXT named column(s)
+            # (misaligned by one), while row[None] holds only the true surplus
+            # (trailing columns shifted). Recovery: rebuild the payload as
+            #   raw_val + ',' + <values of all columns after img_col> + <b64-like extras>
+            # and stop before the first non-base64 fragment (date, id, name...).
+            # If nothing base64-like is found, leave raw_val untouched and let
+            # the row fail loudly instead of fabricating bytes.
+            if "data:image/" in raw_val and ";base64" in raw_val:
+                try:
+                    cols_after = reader.fieldnames[reader.fieldnames.index(img_col) + 1:]
+                except ValueError:
+                    cols_after = []
+                shifted = [row.get(c, "") or "" for c in cols_after]
+                extras = list(row.get(None) or [])
+                frags: list[str] = []
+                for frag in shifted + extras:
+                    frag = frag if isinstance(frag, str) else str(frag)
+                    s = frag.strip()
+                    if s == "":
+                        continue
+                    if len(s) >= 16 and re.fullmatch(r"[A-Za-z0-9+/=_-]+", s):
+                        frags.append(s)
+                    else:
+                        break  # first real trailing column (date, id...) -> stop
+                if frags:
+                    raw_val = raw_val + "," + ",".join(frags)
 
             count += 1
             row_id = str(row.get(id_column, f"rec_{count:07d}")).strip() if id_column else f"rec_{count:07d}"
